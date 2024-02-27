@@ -14,7 +14,7 @@ import json
 def update_eeg_json(BIDS_root, participant_id, task, **kwargs):
     """
     merge existing sidecar with our template.
-    errors out, if required fields are missing.
+    errors out if required fields are missing.
     """
     if not isinstance(kwargs, dict):
         kwargs = {}

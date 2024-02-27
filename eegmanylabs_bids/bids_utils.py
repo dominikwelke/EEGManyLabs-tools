@@ -113,9 +113,16 @@ def validate_bids(BIDS_root, verbose=True):
     files = [
         f"/{f.relative_to(BIDS_root)}" for f in BIDS_root.rglob("*") if f.is_file()
     ]
+    files = [f for f in files if ".DS_Store" not in f]
+    files.sort()
     validation = [validator.is_bids(f) for f in files]
-    assert sum(validation) == len(validation)
     if verbose:
         print("\nvalidate BIDS format:")
         for val, file in zip(validation, files):
-            print(f"{val} - {file}")
+            if not val:
+                print(f"{val} - {file}")
+
+    n_incompatible = len(validation) - sum(validation)
+    if n_incompatible != 0:
+        raise ValueError(f"{n_incompatible} filename(s) not BIDS compatible!")
+
