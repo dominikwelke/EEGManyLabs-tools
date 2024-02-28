@@ -150,4 +150,13 @@ eeg_lab_specs = {
 }
 
 # corrupted files (parts missing etc) 
-corrupted_files = {"HajcakHolroyd2005":["RestCIM14", "Doors_UNL01_2"]}
+corrupted_files = {
+    "HajcakHolroyd2005":[
+        #BON01, BON03, BON11, GUF14, MSH08  # missing trials
+        #CIM05  # too many trials (10 instead of 8)
+        "Doors_BON07",  #  RS cut off (only end trigger present)
+        "RestCIM14",  # .eeg file missing (.vhdr and .vmrk present)
+        "Doors_MSH01",  # no resting state, only Doors
+        "Doors_UNL01_2",  # split file
+        "Doors_URE02",  # no resting state, only Doors
+        ]}

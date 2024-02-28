@@ -10,6 +10,8 @@ written by
 Dominik Welke
 d.welke@leeds.ac.uk
 https://github.com/dominikwelke
+
+TODO: probe if trigger are transcribed correclty
 """
 import pandas as pd
 import json
@@ -36,8 +38,9 @@ crop = True
 verbose = 'ERROR'
 overwrite = False
 consolidate = True
+export_format = "BrainVision"  # "EDF" / "BrainVision"
 
-BIDS_folder = "BIDS-data-brainvision"
+BIDS_folder = f"BIDS-data-{export_format.lower()}"
 BIDS_root = Path(f"/Users/phtn595/Datasets/WIP/{BIDS_folder}")
 RAW_folder = Path("/Users/phtn595/Datasets/EEGManyLabs - Clean/src")
 
@@ -107,7 +110,7 @@ if __name__== "__main__":
 
 	# update CHANGES
 	if crop:
-		update_changes(BIDS_root, "- add resting state eeg data (datasets cropped and converted to brainvision .vhdr).")
+		update_changes(BIDS_root, f"- add resting state eeg data (datasets cropped and converted to {export_format} format).")
 	else:
 		update_changes(BIDS_root, "- add resting state eeg data (original file format).")
 	
@@ -142,7 +145,7 @@ if __name__== "__main__":
 					bids_path = BIDSPath(subject=participant_id, task=task, root=BIDS_root)
 					if not overwrite:
 						try:
-							if bids_path.fpath.with_suffix(".vhdr").exists() or bids_path.fpath.with_suffix("."+eeg_lab_specs[lab]["format"]).exists():
+							if bids_path.fpath.with_suffix(".vhdr").exists() or bids_path.fpath.with_suffix("."+eeg_lab_specs[lab]["format"]).exists() or bids_path.fpath.with_suffix(".edf").exists():
 								participant_ids_eeg.append(participant_id)
 								continue
 						except FileNotFoundError:
@@ -186,7 +189,7 @@ if __name__== "__main__":
 					#montage = make_standard_montage(eeg_lab_specs[lab]["CapManufacturersModelName"])
 					#raw.set_montage(montage)
 
-					# pick resting-state events (in case there was a single recording session)
+					# pick only resting-state events (in case there was a single recording session)
 					try:
 						startevent = pick_events(events, include=event_id["start"])
 						if startevent.shape[0] > 1:
@@ -204,8 +207,12 @@ if __name__== "__main__":
 						events = events[events[:,0]<=endevent[0,0],:]
 					except RuntimeError:
 						print(f"WARNING - no event with ID: {event_id["end"]}")
-						tmax = raw.times[-1]
-					
+						if lab in ["CIM", "UGE"]:  # those have separate files, so no problem
+							tmax = raw.times[-1]
+						elif crop:
+							raise ValueError("no trigger for end of resting state recording!")
+					print(f"n eyes open: {sum(events[:,2]==1)} n eyes close {sum(events[:,2]==2)}")
+
 					# harmonization (if wanted)
 					# resample + reref
 					save_kwargs = dict()
@@ -214,7 +221,7 @@ if __name__== "__main__":
 						
 					# crop data (if wanted)
 					if crop:
-						save_kwargs.update(dict(format="BrainVision", allow_preload=True))
+						save_kwargs.update(dict(format=export_format, allow_preload=True))
 						pad = 30.  # in s
 						tmin, tmax = tmin-pad if tmin>pad else 0., tmax+pad if tmax<raw.times[-1]-pad else tmax
 						# crop and fix events
