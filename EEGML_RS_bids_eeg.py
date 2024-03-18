@@ -11,7 +11,7 @@ Dominik Welke
 d.welke@leeds.ac.uk
 https://github.com/dominikwelke
 
-TODO: probe if trigger are transcribed correclty
+TODO: probe if trigger are transcribed correctly
 """
 import pandas as pd
 import json
@@ -20,6 +20,7 @@ import json
 #from mne_bids.copyfiles import copyfile_eeglab
 
 from pathlib import Path
+from shutil import copy
 from eegmanylabs_bids.bids_init import init_folder
 from eegmanylabs_bids.bids_utils import update_changes, drop_participant, add_participant, validate_bids
 from eegmanylabs_bids.bids_eeg import update_eeg_json
@@ -27,6 +28,7 @@ from eegmanylabs_bids.bids_eeg import update_eeg_json
 from mne import find_events, events_from_annotations, pick_events
 from mne.io import read_raw_brainvision, read_raw_bdf
 from mne_bids import BIDSPath, write_raw_bids
+from mne_bids.copyfiles import copyfile_brainvision, copyfile_edf
 
 from mne.viz import plot_events  # for debugging
 #from mne.channels import make_standard_montage
@@ -34,22 +36,28 @@ from mne.viz import plot_events  # for debugging
 from EEGML_RS_bids_eeg_setups import eeg_lab_specs, event_id, corrupted_files
 
 # settings
+export_format = "EDF"  # "EDF" / "BrainVision" - only used if crop=True
 crop = True
+consolidate = True  # clean missing participants from participants.tsv etc
 verbose = 'ERROR'
 overwrite = False
-consolidate = True
-export_format = "BrainVision"  # "EDF" / "BrainVision"
+changelog = True
 
-BIDS_folder = f"BIDS-data-{export_format.lower()}"
-BIDS_root = Path(f"/Users/phtn595/Datasets/WIP/{BIDS_folder}")
+ROOT_dir = Path("/Users/phtn595/Datasets/EEGManyLabs RestingState")
+BIDS_root = ROOT_dir / f"BIDS-data-{export_format.lower()}"
+BIDS_sourcedata = ROOT_dir / "sourcedata"  # BIDS_root / "sourcedata"
 RAW_folder = Path("/Users/phtn595/Datasets/EEGManyLabs - Clean/src")
 
-labs = ["BON", "CIM", "GUF", "MSH", "UGE", "UHH", "UNL", "URE"]
+labs = ["BON", "CIM", "GUF", "MSH", "UCM", "UHH", "UNL", "URE"]  # EUR not possible yet (missing trigger info); TUD+UGE skipped (missing channel layout) 
 task = "resting"
-
+changelog_messages = [
+    "- add sourcedata.",
+    f"- add resting state eeg data (datasets cropped and converted to {export_format} format)." if crop else "- add resting state eeg data (original file format).",
+	f"- finalize for labs: {labs}"
+]
 
 # event parser
-def events_BRAINVISION(raw, event_id, participant_id=None):
+def events_BRAINVISION(raw, event_id, beh_file=None):
 	events,event_id_load = events_from_annotations(raw, verbose=verbose)
 	for stim in (1,2):
 		assert(event_id_load[f"Stimulus/S  {stim}"]==stim)
@@ -57,30 +65,39 @@ def events_BRAINVISION(raw, event_id, participant_id=None):
 	raw.set_annotations(None)
 	return raw, events
 
-def events_BIOSEMI(raw, event_id, participant_id=None):
+def events_BIOSEMI(raw, event_id, beh_file=None):
 	events = find_events(raw, initial_event=False, verbose=verbose)
 	events = pick_events(events, include=list(event_id.values()))
 	return raw, events
 
-def events_UHH(raw, event_id, participant_id=None):
+def events_EUR(raw, event_id, beh_file=None):
+	#tbd
+	events = find_events(raw, initial_event=False, verbose=verbose)
+	events = pick_events(events, include=list(event_id.values()))
+	return raw, events
+
+def events_UHH(raw, event_id, beh_file=None):
 	# apparently RS trigger are all 253 or 254 (not 1 or 2) :/ have to parse them
 	# only in most files, though.. UHH30 onwards has correct trigger
+	if isinstance(beh_file, list):
+		raise NotImplementedError  # not implemented for split log files
 	events = find_events(raw, initial_event=False, verbose=verbose)
-	if "UHH3" in participant_id:
+	if "UHH3" in beh_file.name:
 		# normal process
 		events = pick_events(events, include=list(event_id.values()))
 	else:
 		# fix stim sequence
 		events = pick_events(events, include=[70, 71, 253, 254])
-		f = list((RAW_folder / "HajcakHolroyd2005" / "UHH" / "Behav_Data").glob(f"Doors_{participant_id}_Resting*.csv"))[0]
-		real_seq = pd.read_csv(f)["Anweisung"].dropna().to_list() 
-		real_seq = [1 if "auf" in x else 2 if "zu" in x else "n/a" for x in real_seq]
+		#real_seq = pd.read_csv(beh_file)["Anweisung"].dropna().to_list() 
+		#real_seq = [1 if "auf" in x else 2 if "zu" in x else "n/a" for x in real_seq]
+		real_seq = pd.read_csv(beh_file)["Instruction_trials"].dropna().to_list() 
+		real_seq = [1 if "open" in x else 2 if "close" in x else "n/a" for x in real_seq]
 		wrong_idx = (events[:,2] == 253) + (events[:,2] == 254)
 		assert(len(real_seq) == events[wrong_idx].shape[0])
 		events[wrong_idx,2] = real_seq
 	return raw, events
 
-def events_UNL(raw, event_id, participant_id=None):
+def events_UNL(raw, event_id, beh_file=None):
 	events = find_events(raw, initial_event=False, verbose=verbose)
 	try:
 		events = pick_events(events, include=list(event_id.values()))
@@ -92,8 +109,11 @@ def events_UNL(raw, event_id, participant_id=None):
 event_parser = dict(
 	BON=events_BIOSEMI,
 	CIM=events_BRAINVISION,
+	EUR=events_EUR,
 	GUF=events_BRAINVISION,
 	MSH=events_BRAINVISION,
+	TUD=events_BRAINVISION,
+	UCM=events_BIOSEMI,
 	UGE=events_BIOSEMI,
 	UHH=events_UHH,
 	UNL=events_UNL,
@@ -108,15 +128,8 @@ if __name__== "__main__":
 	if not BIDS_root.is_dir():
 		init_folder(BIDS_root)
 
-	# update CHANGES
-	if crop:
-		update_changes(BIDS_root, f"- add resting state eeg data (datasets cropped and converted to {export_format} format).")
-	else:
-		update_changes(BIDS_root, "- add resting state eeg data (original file format).")
-	
 	# store participants.tsv, because it will be overwritten by write_raw_bids
-	participant_tsv = pd.read_csv(BIDS_root / 'participants.tsv', sep='\t')
-	participant_tsv['age'] = participant_tsv['age'].astype('Int64')
+	participant_tsv = pd.read_csv(BIDS_root / 'participants.tsv', sep='\t', dtype={"age":"Int64"})
 
 	# do
 	participant_ids_tsv = list(participant_tsv.participant_id)
@@ -128,9 +141,9 @@ if __name__== "__main__":
 		for lab in labs:
 			print("-"+lab)
 			if lab in ("UGE", "CIM"):
-				eeg_files = list((RAW_folder / study / lab / "EEG_Data").glob(f"Rest*.{eeg_lab_specs[lab]['format']}"))
+				eeg_files = list((RAW_folder / study / lab / "EEG_Data").glob(f"[Rr][Ee][Ss][Tt]*.{eeg_lab_specs[lab]['format']}"))
 			else:
-				eeg_files = list((RAW_folder / study / lab / "EEG_Data").glob(f"Doors*.{eeg_lab_specs[lab]['format']}"))
+				eeg_files = list((RAW_folder / study / lab / "EEG_Data").glob(f"[Dd][Oo][Oo][Rr][Ss]*.{eeg_lab_specs[lab]['format']}"))
 			eeg_files.sort()
 			for eeg_file in eeg_files:
 				participant_id = eeg_file.name.split('.')[0][-5:]
@@ -150,6 +163,16 @@ if __name__== "__main__":
 								continue
 						except FileNotFoundError:
 							pass  # file doesnt exist
+					
+					# stim sequence filename
+					beh_file = list((RAW_folder / study / lab / "Behav_Data").glob(f"*{participant_id}*Resting*.csv"))
+					if len(beh_file) == 1:
+						beh_file = Path(beh_file[0])
+					elif len(beh_file) == 0:
+						beh_file = None
+					else:
+						beh_file = [Path(bf) for bf in beh_file]
+						#raise ValueError
 
 					# load data
 					if eeg_lab_specs[lab]['format'] == "vhdr": 
@@ -159,20 +182,27 @@ if __name__== "__main__":
 						with eeg_file.open("r") as f:
 							pt = "Reference Channel Name ="
 							try:
-								EEGref = [ll for ll in f.readlines() if pt in ll][0].split(pt)[-1].strip("\n")
+								eeg_lab_specs[lab]['sidecar']['EEGReference'] = [ll for ll in f.readlines() if pt in ll][0].split(pt)[-1].strip("\n")
 							except IndexError:
-								EEGref = "n/a"  # not present in vhdr file (e.g. MSH))
+								pass  # not present in vhdr file (e.g. MSH) - take from template
 							#EEGgnd = "Gnd"  # not in the vhdr file
+						with eeg_file.open("r") as f:							
+							pt = ['brainvision recorder', 'v.']
+							try:
+								eeg_lab_specs[lab]['sidecar']['SoftwareVersions'] = [ll.lower().split('v.')[-1].strip() for ll in f.readlines() if pt[0] in ll.lower() and pt[1] in ll.lower()][0]
+							except IndexError:
+								pass  # not present in vhdr file (e.g. MSH) - take from template
+							
 					elif eeg_lab_specs[lab]['format'] == "bdf": 
 						raw = read_raw_bdf(eeg_file, preload=False, verbose=verbose, infer_types=True)
 						# extract metadata for sidecar
-						EEGref = "CMS"
+						# pass
 					else:
 						raise NotImplementedError
 					print("sfreq =", raw.info["sfreq"], "Hz")
-
+					
 					# get initial events
-					raw, events = event_parser[lab](raw, event_id, participant_id)
+					raw, events = event_parser[lab](raw, event_id, beh_file)
 					
 					# specify power line frequency as required by BIDS
 					raw.info["line_freq"] = eeg_lab_specs[lab]['line_freq']
@@ -210,7 +240,11 @@ if __name__== "__main__":
 						if lab in ["CIM", "UGE"]:  # those have separate files, so no problem
 							tmax = raw.times[-1]
 						elif crop:
+							print(f"ERROR - skipping {participant_id}")
+							continue
 							raise ValueError("no trigger for end of resting state recording!")
+
+					events = pick_events(events, include=[event_id["eyes open"], event_id["eyes close"]])
 					print(f"n eyes open: {sum(events[:,2]==1)} n eyes close {sum(events[:,2]==2)}")
 
 					# harmonization (if wanted)
@@ -242,10 +276,29 @@ if __name__== "__main__":
 					try:
 						update_eeg_json(
 							BIDS_root, "sub-"+participant_id, 	task, 
-					  		TaskName="EEGManyLabs Resting State", EEGReference=EEGref, **eeg_lab_specs[lab]["sidecar"])
+					  		TaskName="EEGManyLabs Resting State", **eeg_lab_specs[lab]["sidecar"])
 					except FileNotFoundError:
 						pass
 					
+					# copy sourcefile
+					#task_sourcefile = task if (lab in ["CIM", "UGE"]) else task+"+replicaton"
+					#bids_path_source = BIDS_sourcedata / ("sub-"+participant_id) / "eeg" / f"sub-{participant_id}_task-{task_sourcefile}_eeg.{eeg_lab_specs[lab]["format"]}"
+					bids_path_source = BIDS_sourcedata / ("sub-"+participant_id) / "eeg" / eeg_file.name
+					if not bids_path_source.exists():
+						bids_path_source.parent.mkdir(parents=True, exist_ok=True)
+						if eeg_lab_specs[lab]["format"] == "vhdr":
+							copyfile_brainvision(eeg_file, bids_path_source)
+						elif eeg_lab_specs[lab]["format"] == "bdf":
+							copyfile_edf(eeg_file, bids_path_source)
+						if beh_file:
+							if isinstance(beh_file, Path):
+								#copy(beh_file, bids_path_source.parent / f"sub-{participant_id}_task-{task}_beh.csv")  # For Python 3.8+, otherwise must be str
+								copy(beh_file, bids_path_source.parent / beh_file.name)  # For Python 3.8+, otherwise must be str
+							else:  # list
+								for i, bf in enumerate(beh_file):
+									#copy(bf, bids_path_source.parent / f"sub-{participant_id}_task-{task}_beh_part-{i+1}.csv")  # For Python 3.8+, otherwise must be str
+									copy(bf, bids_path_source.parent / bf.name)  # For Python 3.8+, otherwise must be str
+
 					participant_ids_eeg.append(participant_id)
 
 	# restore participants.tsv
@@ -273,6 +326,11 @@ if __name__== "__main__":
 # validate BIDS
 print("\nvalidate BIDS compliance")
 validate_bids(BIDS_root, verbose=True)
+
+# update CHANGES
+if changelog:
+	for m in changelog_messages:
+		update_changes(BIDS_root, m)
 
 print("\ndone!")
 	

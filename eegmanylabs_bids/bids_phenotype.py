@@ -13,6 +13,15 @@ https://github.com/dominikwelke
 import pandas as pd
 import numpy as np
 
+pheno_dtypes = {
+    "bfi_s":{k:"Int64" for k in ["bfi_ext","bfi_agr","bfi_con","bfi_neg","bfi_ope"]},
+    "bisbas":{k:"Int64" for k in ["bis","bas_drive","bas_funseek","bas_rewardresponse"]},
+    "ces":{"ces_d":"Int64"},
+    "ehi":{},
+    "kss":{"kss":"Int64"},
+    "panas_state":{k:"Int64" for k in ["panas_s_PA", "panas_s_NA"]},
+    "stai_t":{k:"Int64" for k in ["stai_t_state","stai_t_trait"]},
+}
 
 # questionnaire parser defs
 def parse_kss(data_in):
@@ -49,7 +58,7 @@ def parse_cesd(data_in, skipna=False):
     return CES
 
 
-def parse_bisbas(data_in, skipna=False):
+def parse_bisbas(data_in, order=None, skipna=False):
     """
     requires columns named 'BISBAS_[1-24]'
     values in range [1,4] or nan
@@ -68,11 +77,24 @@ def parse_bisbas(data_in, skipna=False):
     BISBAS_data[reverse_keys] = BISBAS_data[reverse_keys] * -1 + 5
 
     # compute subscores
-    BIS_keys = [f"BISBAS_{k}" for k in [2, 8, 13, 16, 19, 22, 24]]
-    BAS_dri_keys = [f"BISBAS_{k}" for k in [3, 9, 12, 21]]
-    BAS_fun_keys = [f"BISBAS_{k}" for k in [5, 10, 15, 20]]
-    BAS_rew_keys = [f"BISBAS_{k}" for k in [4, 7, 14, 18, 23]]
-    # filler_keys = [f"BISBAS_{k}" for k in [1, 6, 11, 17]]  # not needed
+    if order == "general":
+        # see https://scales.arabpsychology.com/s/behavioral-avoidance-inhibition-scales-bis-bas/
+        BIS_keys = [f"BISBAS_{k}" for k in [2, 8, 13, 16, 19, 22, 24]]
+        BAS_dri_keys = [f"BISBAS_{k}" for k in [3, 9, 12, 21]]
+        BAS_fun_keys = [f"BISBAS_{k}" for k in [5, 10, 15, 20]]
+        BAS_rew_keys = [f"BISBAS_{k}" for k in [4, 7, 14, 18, 23]]
+        # filler_keys = [f"BISBAS_{k}" for k in [1, 6, 11, 17]]  # not needed
+    elif order == "en-2":
+        # see https://arc.psych.wisc.edu/self-report/behavioral-activation-and-behavioral-inhibition-scales-bai/
+        BIS_keys = [f"BISBAS_{k}" for k in [1, 6, 10, 13, 15, 18, 20]]
+        BAS_dri_keys = [f"BISBAS_{k}" for k in [4, 8, 12, 16]]
+        BAS_fun_keys = [f"BISBAS_{k}" for k in [2, 7, 9, 17]]
+        BAS_rew_keys = [f"BISBAS_{k}" for k in [3, 5, 11, 14, 19]]
+        # filler_keys = [f"BISBAS_{k}" for k in [1, 6, 11, 17]]  # not needed
+
+    else:
+        raise NotImplementedError
+
     BISBAS = pd.DataFrame(
         {
             "bis": BISBAS_data[BIS_keys].sum(axis=1, skipna=skipna),
@@ -122,14 +144,13 @@ def parse_ehi(data_in, skipna=True):
     return EHI
 
 
-def parse_bfi_s(data_in, skipna=False):
+def parse_bfi_s15(data_in, order=None, skipna=False):
     """
+    BFI-S 15 item version. 1-7 likert scale
     requires columns named 'BFI_[1-15]'
     data range [1-7] or nan
     """
-    if skipna:
-        raise NotImplementedError("Ignoring NaN not yet implemented")
-
+    
     # check input
     BFI_keys = [f"BFI_{i}" for i in range(1, 16)]
     assert sum([k in data_in.keys() for k in BFI_keys]) == 15
@@ -142,27 +163,46 @@ def parse_bfi_s(data_in, skipna=False):
         assert BFI_data.max(axis=None, skipna=True) <= 3
 
     # transcribe
-    BFI_data["bfi_ext"] = (
-        -BFI_data["BFI_1"] + BFI_data["BFI_6"] + BFI_data["BFI_11"] + 3 * t
-    )
-    BFI_data["bfi_agr"] = (
-        BFI_data["BFI_2"] - BFI_data["BFI_7"] + BFI_data["BFI_12"] + 3 * t
-    )
-    BFI_data["bfi_con"] = (
-        -BFI_data["BFI_3"] - BFI_data["BFI_8"] + BFI_data["BFI_13"] + 3 * t
-    )
-    BFI_data["bfi_neg"] = (
-        BFI_data["BFI_4"] + BFI_data["BFI_9"] - BFI_data["BFI_14"] + 3 * t
-    )
-    BFI_data["bfi_ope"] = (
-        BFI_data["BFI_5"] - BFI_data["BFI_10"] + BFI_data["BFI_15"] + 3 * t
-    )
+    if order=='':
+        REV_keys = [f"BFI_{i}" for i in [1,3,7,8,10,14]]
+        EXT_keys = [f"BFI_{i}" for i in [1,6,11]]
+        AGR_keys = [f"BFI_{i}" for i in [2,7,12]]
+        CON_keys = [f"BFI_{i}" for i in [3,8,13]]
+        NEG_keys = [f"BFI_{i}" for i in [4,9,14]]
+        OPE_keys = [f"BFI_{i}" for i in [5,10,15]]
+    elif order=='ger-1':
+        # german version
+        # see https://zis.gesis.org/skala/Schupp-Gerlitz-Big-Five-Inventory-SOEP-(BFI-S)#
+        REV_keys = [f"BFI_{i}" for i in [3,6,8,15]]
+        EXT_keys = [f"BFI_{i}" for i in [2,6,9]]
+        AGR_keys = [f"BFI_{i}" for i in [3,7,13]]
+        CON_keys = [f"BFI_{i}" for i in [1,8,12]]
+        NEG_keys = [f"BFI_{i}" for i in [5,11,15]]
+        OPE_keys = [f"BFI_{i}" for i in [4,10,14]]
+    elif order=="en-1":
+        # english version
+        # see https://www.oecd.org/skills/piaac/Annex-A-Measures-of-the-big-five-dimensions.pdf
+        REV_keys = [f"BFI_{i}" for i in [3,6,10,14]]
+        EXT_keys = [f"BFI_{i}" for i in [4,5,6]]
+        AGR_keys = [f"BFI_{i}" for i in [10,11,12]]
+        CON_keys = [f"BFI_{i}" for i in [13,14,15]]
+        NEG_keys = [f"BFI_{i}" for i in [1,2,3]]
+        OPE_keys = [f"BFI_{i}" for i in [7,8,9]]
+    else:
+        raise NotImplementedError
 
-    BFI = BFI_data[["bfi_ext", "bfi_agr", "bfi_con", "bfi_neg", "bfi_ope"]]
+    BFI_data.loc[:,REV_keys] *= -1
+    BFI_data["bfi_ext"] = BFI_data.loc[:,EXT_keys].sum(axis=1,skipna=skipna)
+    BFI_data["bfi_agr"] = BFI_data.loc[:,AGR_keys].sum(axis=1,skipna=skipna)
+    BFI_data["bfi_con"] = BFI_data.loc[:,CON_keys].sum(axis=1,skipna=skipna)
+    BFI_data["bfi_neg"] = BFI_data.loc[:,NEG_keys].sum(axis=1,skipna=skipna)
+    BFI_data["bfi_ope"] = BFI_data.loc[:,OPE_keys].sum(axis=1,skipna=skipna)
+
+    BFI = BFI_data[["bfi_ext", "bfi_agr", "bfi_con", "bfi_neg", "bfi_ope"]] + 3 * t
     return BFI
 
 
-def parse_panas_state(data_in, skipna=False):
+def parse_panas_state(data_in, order=None, skipna=False):
     """
     requires columns named 'PANAS_S_[1-20]'
     data range [1-5] or nan
@@ -171,8 +211,6 @@ def parse_panas_state(data_in, skipna=False):
     items [1,3,5,9,10,12,14,16,17,19] to PA subscale
     items [2,4,6,7,8,11,13,15,18,20] to NA subscale
     """
-    if skipna:
-        raise NotImplementedError("Ignoring NaN not yet implemented")
 
     # check input
     panas_keys = [f"PANAS_S_{i}" for i in range(1, 21)]
@@ -183,37 +221,24 @@ def parse_panas_state(data_in, skipna=False):
         assert PANAS_S_data.max(axis=None, skipna=True) <= 5
 
     # transcribe
-    PANAS_S_data["panas_s_PA"] = (
-        PANAS_S_data["PANAS_S_1"]
-        + PANAS_S_data["PANAS_S_3"]
-        + PANAS_S_data["PANAS_S_5"]
-        + PANAS_S_data["PANAS_S_9"]
-        + PANAS_S_data["PANAS_S_10"]
-        + PANAS_S_data["PANAS_S_12"]
-        + PANAS_S_data["PANAS_S_14"]
-        + PANAS_S_data["PANAS_S_16"]
-        + PANAS_S_data["PANAS_S_17"]
-        + PANAS_S_data["PANAS_S_19"]
-    )
+    if order == "en-1":
+        # see https://ogg.osu.edu/media/documents/MB%20Stream/PANAS.pdf
+        PA_keys = [f"PANAS_S_{i}" for i in [1,3,5,9,10,12,14,16,17,19]]
+        NA_keys = [f"PANAS_S_{i}" for i in [2,4,6,7,8,11,13,15,18,20]]
+    elif order == "ger-1":
+        PA_keys = [f"PANAS_S_{i}" for i in [1,3,4,6,10,11,13,15,17,18]]
+        NA_keys = [f"PANAS_S_{i}" for i in [2,5,7,8,9,12,14,16,19,20]]
+    else:
+        raise NotImplementedError
 
-    PANAS_S_data["panas_s_NA"] = (
-        PANAS_S_data["PANAS_S_2"]
-        + PANAS_S_data["PANAS_S_4"]
-        + PANAS_S_data["PANAS_S_6"]
-        + PANAS_S_data["PANAS_S_7"]
-        + PANAS_S_data["PANAS_S_8"]
-        + PANAS_S_data["PANAS_S_11"]
-        + PANAS_S_data["PANAS_S_13"]
-        + PANAS_S_data["PANAS_S_15"]
-        + PANAS_S_data["PANAS_S_18"]
-        + PANAS_S_data["PANAS_S_20"]
-    )
+    PANAS_S_data["panas_s_PA"] = PANAS_S_data[PA_keys].sum(axis=1, skipna=skipna)
+    PANAS_S_data["panas_s_NA"] = PANAS_S_data[NA_keys].sum(axis=1, skipna=skipna)
 
     PANAS_S = PANAS_S_data[["panas_s_NA", "panas_s_PA"]]
     return PANAS_S
 
 
-def parse_stai_state(data_in, skipna=False):
+def parse_stai_state(data_in, order=None, skipna=False):
     """
     requires columns named 'STAI_S_[1-20]'
     data range [1-4] or nan
@@ -226,13 +251,28 @@ def parse_stai_state(data_in, skipna=False):
         assert STAI_S_data.min(axis=None, skipna=True) >= 1
         assert STAI_S_data.max(axis=None, skipna=True) <= 4
 
+    # transpose to mirrored
+    t = 2.5
+    STAI_S_data.loc[:, stai_keys] -= t
+
+    # apply reverse coding
+    if order == "ger-1":
+        # verified for TUD/UHH
+        REV_keys = [f"STAI_S_{i}" for i in [1,2,5,8,10,11,15,16,19,20]]
+    elif order=="en-1":
+        # see https://arc.psych.wisc.edu/self-report/state-trait-anxiety-inventory-sta/
+        REV_keys = [f"STAI_S_{i}" for i in [1,2,5,8,10,11,15,16,19,20]]
+    else:
+        raise NotImplementedError
+    STAI_S_data.loc[:, REV_keys] *= -1
+
     # transcribe
-    STAI_S = STAI_S_data.sum(axis=1, skipna=skipna)
+    STAI_S = STAI_S_data.sum(axis=1, skipna=skipna) + 20*t
 
     return STAI_S
 
 
-def parse_stai_trait(data_in, skipna=False):
+def parse_stai_trait(data_in, order=None, skipna=False):
     """
     requires columns named 'STAI_T_[1-20]'
     data range [1-4] or nan
@@ -245,7 +285,21 @@ def parse_stai_trait(data_in, skipna=False):
         assert STAI_T_data.min(axis=None, skipna=True) >= 1
         assert STAI_T_data.max(axis=None, skipna=True) <= 4
 
+    # transpose to mirrored
+    t = 2.5
+    STAI_T_data.loc[:, stai_keys] -= t
+
+    # apply reverse coding
+    if order == "ger-1":
+        REV_keys = [f"STAI_T_{i}" for i in [1,6,7,10,13,16,19]]
+    elif order=="en-1":
+        # see https://arc.psych.wisc.edu/self-report/state-trait-anxiety-inventory-sta/
+        REV_keys = [f"STAI_T_{i}" for i in [1,3,6,7,10,13,14,16,19]]
+    else:
+        raise NotImplementedError
+    STAI_T_data.loc[:, REV_keys] *= -1
+
     # transcribe
-    STAI_T = STAI_T_data.sum(axis=1, skipna=skipna)
+    STAI_T = STAI_T_data.sum(axis=1, skipna=skipna) + 20*t
 
     return STAI_T

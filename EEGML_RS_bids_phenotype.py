@@ -15,13 +15,25 @@ import json
 import pandas as pd
 import numpy as np
 
+from shutil import copy
 from pathlib import Path
 from eegmanylabs_bids.bids_init import init_folder, BIDS_template
 from eegmanylabs_bids.bids_utils import update_changes, purge_folder, sort_bids, validate_bids
 from eegmanylabs_bids.bids_phenotype import (
-	parse_bfi_s,parse_bisbas,parse_cesd,parse_ehi,
+	parse_bfi_s15,parse_bisbas,parse_cesd,parse_ehi,
 	parse_kss,parse_panas_state,parse_stai_state,parse_stai_trait
 	)
+
+# settings
+ROOT_dir = Path("/Users/phtn595/Datasets/EEGManyLabs RestingState")
+BIDS_root = ROOT_dir / "BIDS-data-test"  # "BIDS-data-brainvision"
+BIDS_sourcedata = ROOT_dir / "sourcedata"  # BIDS_root / "sourcedata"
+RAW_folder = Path("/Users/phtn595/Datasets/EEGManyLabs - Clean/src")
+
+#labs = (BIDS_root.parents[0] / "sourcedata" / study).glob("*/")
+labs = ["BON", "CIM", "GUF", "MSH", "TUD", "UGE", "UHH", "UNL", "URE"]  # UCM, EUR not possible yet (missing questionnaire data)
+
+changelog = False
 
 # helper defs
 def _merge_duplicates(data_in):
@@ -46,8 +58,8 @@ def _rescale_data(data_in, minmax_in, minmax_out):
 # lab specidific parser
 def parse_phenotype_BON(folder):
 	omitlines = 3
-
-	d = pd.read_csv(folder / "phenotype" / "BON_Self_Report.csv")
+	f = folder / "Other_Requested_Files" / "BON_Self_Report.csv"
+	d = pd.read_csv(f)
 	#d_info = d[:omitlines]
 	d = d[omitlines:].reset_index(drop=True)
 
@@ -64,11 +76,11 @@ def parse_phenotype_BON(folder):
 	EHI_data = parse_ehi(d)
 
 	# BFI
-	BFI_data = parse_bfi_s(d)  # 1-5 scale, subtract 3
+	BFI_data = parse_bfi_s15(d, order="en-1")  # 1-5 scale, subtract 3
 
 	# PANAS
 	d = d.rename(columns={f"PANAS_{i}":f"PANAS_S_{i}" for i in range(1,21)})
-	PANAS_data = parse_panas_state(d)
+	PANAS_data = parse_panas_state(d, order="en-1")
 	
 	# KSS
 	KSS_data = parse_kss(d)
@@ -80,18 +92,144 @@ def parse_phenotype_BON(folder):
 	CES_data = parse_cesd(d)
 
 	# BISBAS
-	BISBAS_data = parse_bisbas(d)
+	BISBAS_data = parse_bisbas(d, order="general")
 
 	# STAI-T
 	STAI_data = pd.DataFrame({
-		"stai_t_state":parse_stai_state(d),
-		"stai_t_trait":parse_stai_trait(d)
+		"stai_t_state":parse_stai_state(d, order="en-1"),
+		"stai_t_trait":parse_stai_trait(d, order="en-1")
 		})
-	return sub_ids, age, sex, EHI_data, BFI_data, PANAS_data, KSS_data, CES_data, BISBAS_data, STAI_data
+	return sub_ids, age, sex, EHI_data, BFI_data, PANAS_data, KSS_data, CES_data, BISBAS_data, STAI_data, [f]
+
+
+def parse_phenotype_TUD(folder):
+	f1 = folder / "Other_Requested_Files" / "ManyLabs_TUD_LimeSurvey_Q1_FullResponse.csv"
+	f2 = folder / "Other_Requested_Files" / "ManyLabs_TUD_LimeSurvey_Q2_FullResponse.csv"
+	d1 = pd.read_csv(f1).rename(columns={"VP-Code/ID:":"participant_id"})  # sub 14/15 might be shifted to 15/16?
+	d1 = _merge_duplicates(d1)
+	d2 = pd.read_csv(f2).rename(columns={"VP-Code:":"participant_id"})
+	d2 = _merge_duplicates(d2)
+	d = pd.merge(d1,d2,on="participant_id")
+
+	#lab = str(folder.name)[:3]
+	
+	d["participant_id"] = [s[-5:] for s in d["participant_id"]]
+	sub_ids = list(d["participant_id"])
+
+	# basics
+	age = list(d["Alter in Jahren:"])
+	sex = [
+		s if not isinstance(s, str) 
+		else "f" if (s.lower()[0] == "w") 
+		else "m" if (s.lower()[0] == "m") 
+		else "o" 
+		for s in d["Anschließend bitten wir Sie um die Angabe Ihrer demographischen Daten. Bitte geben Sie zunächst Ihr Geschlecht an."]
+		]
+
+	# handedness
+	EHI_keys = [k for k in d.keys() if "welche Hand Sie hierfür gebrauchen" in k]
+	EHI_dict_R = {"immer rechts, nie links":2, "meistens rechts":1, "rechts und links gleich häufig":0, "meistens links":0, "immer links, nie rechts":0, "keine Angabe":"n/a", 99:'n/a'}
+	EHI_dict_L = {"immer rechts, nie links":0, "meistens rechts":0, "rechts und links gleich häufig":0, "meistens links":1, "immer links, nie rechts":2, "keine Angabe":"n/a", 99:'n/a'}
+	for i, k in enumerate(EHI_keys):
+		d[f"EHI_R_{i+1}"] = d[k].fillna(99).apply(lambda x: EHI_dict_R[x])
+		d[f"EHI_L_{i+1}"] = d[k].fillna(99).apply(lambda x: EHI_dict_L[x])
+	EHI_data = parse_ehi(d)
+
+	# BFI
+	BFI_keys = [k for k in d.keys() if "ich bin jemand" in k.lower()]
+	assert(len(BFI_keys)==15)
+	for i,k in enumerate(BFI_keys):
+		d[f"BFI_{i+1}"] = d[k].apply(lambda x: int(x[0]) if isinstance(x, str) else x)
+	BFI_data = parse_bfi_s15(d, order="ger-1")
+
+	# PANAS - needs work (german reordered) - done
+	PANAS_keys = [k for k in d.keys() if "Wörtern, die unterschiedliche Gefühle und Empfindungen beschreiben" in k]
+	assert(len(PANAS_keys)==20)
+	PANAS_dict = {
+		"Gar nicht":1,
+		"Ein bisschen":2,
+		"Einigermaßen":3,
+		"Erheblich":4,
+		"Äußerst":5,
+	}
+	for i, k in enumerate(PANAS_keys):
+		d[f"PANAS_S_{i+1}"] = d[k].apply(lambda x: PANAS_dict[x] if isinstance(x,str) else x)
+	PANAS_data = parse_panas_state(d, order="ger-1")
+	
+	# KSS
+	KSS_key = "[Geben Sie auf einer Skala von 1 bis 9 an, wie schläfrig Sie sich fühlen:]"
+	KSS_dict = {
+		"Sehr wach":2,
+		"Wach":3,
+		"Ziemlich wach":4,
+		"Anzeichen von Müdigkeit":6
+		}
+	d = d.rename(columns={KSS_key:"KSS"})
+	d["KSS"] = d["KSS"].apply(lambda x: KSS_dict[x] if isinstance(x,str) else x)
+	KSS_data = parse_kss(d)
+
+	# CES (order doesnt matter)
+	CES_keys = [k for k in d.keys() if "Beschreibungen, wie Sie sich möglicherweise zuletzt gefühlt oder verhalten haben" in k]
+	assert(len(CES_keys)==20)
+	CES_dict = {
+		'Überhaupt nicht oder weniger als 1 Tag':0,
+		"1 bis 2 Tage":1,
+		"3 bis 4 Tage":2,
+		"5 bis 7 Tage":3,
+		"Fast jeden Tag in den letzten 2 Wochen":3
+		}
+	for i, k in enumerate(CES_keys):
+		d[f"CESD_{i+1}"] = d[k].apply(lambda x: "n/a" if str(x) in ["nan", "na", "NaN", "None"] else CES_dict[x])
+	CES_data = parse_cesd(d)
+
+	# BISBAS (english/german same order)
+	BISBAS_keys = [k for k in d.keys() if "eine Reihe von Feststellungen, mit denen man sich selbst beschreiben kann" in k]
+	assert(len(BISBAS_keys)==24)
+	BISBAS_dict = {
+		"trifft für mich gar nicht zu":4,
+		"trifft für mich eher nicht zu":3,
+		"trifft für mich eher zu":2,
+		"trifft für mich genau zu":1,
+		"Very false for me":4,
+		"Somewhat false for me":3,
+		"Somewhat true for me":2,
+		"Very true for me":1
+		}
+	for i, k in enumerate(BISBAS_keys):
+		d[f"BISBAS_{i+1}"] = d[k].apply(lambda x: BISBAS_dict[x] if isinstance(x,str) else x)
+	BISBAS_data = parse_bisbas(d, order="general")
+
+	# STAI-T - needs work (different order in german)
+	STAI_S_keys = [k for k in d.keys() if "die folgenden Gefühlsbeschreibungen im Moment" in k]
+	STAI_T_keys = [k for k in d.keys() if "wie oft folgende Aussagen im Allgemeinen" in k]
+	assert(len(STAI_S_keys)==20)
+	assert(len(STAI_T_keys)==20)
+
+	STAI_dict = {
+		"Sehr":4,
+		"Ziemlich":3,
+		"Ein Wenig":2,
+		"Überhaupt nicht":1,
+		"Fast immer":4,
+		"Oft":3,
+		"Manchmal":2,
+		"Fast nie":1
+	}
+	for i in range(1,21):  # fill with n/a
+		d[f"STAI_S_{i}"] = d[STAI_S_keys[i-1]].apply(lambda x: STAI_dict[x] if isinstance(x, str) else x)
+		d[f"STAI_T_{i}"] = d[STAI_T_keys[i-1]].apply(lambda x: STAI_dict[x] if isinstance(x, str) else x)
+
+	STAI_data = pd.DataFrame({
+		"stai_t_state":parse_stai_state(d, order="ger-1"),
+		"stai_t_trait":parse_stai_trait(d, order="ger-1")
+		})
+	
+	return sub_ids, age, sex, EHI_data, BFI_data, PANAS_data, KSS_data, CES_data, BISBAS_data, STAI_data, [f1, f2]
 
 
 def parse_phenotype_UGE(folder):
-	d = pd.read_csv(folder / "phenotype" / "questionnaires" / "complete_transcribe_questionnaires_120124 DWaccepted.csv", sep=";")
+	f = folder / "Other_Requested_Files" / "Questionnaires" / "UGE_complete_transcribe_questionnaires_120124 DWaccepted.csv"
+	d = pd.read_csv(f, sep=";")
 	#d_info = d[:omitlines]
 
 	d = _merge_duplicates(d)
@@ -100,9 +238,9 @@ def parse_phenotype_UGE(folder):
 	# basics
 	age, sex = [],[]
 	for sub_id in sub_ids:
-		UGE_root = Path("/Users/dominik.welke/ownCloud - EEGManyLabs/MetaRep BU2/RestingStateSpinOff/HajcakHolroyd2005/")
+		UGE_root = Path("/Users/phtn595/Datasets/EEGManyLabs - Clean/src/HajcakHolroyd2005/UGE/Behav_Data")
 		try:
-			dd = pd.read_csv(UGE_root / f"sub-Doors{sub_id}/task-Doors/beh/sub-Doors{sub_id}_task-Doors_beh.txt", sep="\t")
+			dd = pd.read_csv(UGE_root / f"{sub_id}_cuedDoors.txt", sep="\t")
 			age.append(dd.age[0])
 			sex.append(dd.gndr[0])
 		except FileNotFoundError:
@@ -114,11 +252,11 @@ def parse_phenotype_UGE(folder):
 	EHI_data = parse_ehi(d)
 
 	# BFI - HERE THEY USED A 1-7 scale
-	BFI_data = parse_bfi_s(d)  # 1-7 scale, subtract 4
+	BFI_data = parse_bfi_s15(d,order="en-1")  # 1-7 scale, subtract 4
 
 	# PANAS
 	d = d.rename(columns={f"PANAS_{i}":f"PANAS_S_{i}" for i in range(1,21)})
-	PANAS_data = parse_panas_state(d)
+	PANAS_data = parse_panas_state(d, order="en-1")
 
 	# KSS
 	KSS_data = parse_kss(d)
@@ -130,20 +268,22 @@ def parse_phenotype_UGE(folder):
 	CES_data = parse_cesd(d)
 
 	# BISBAS
-	BISBAS_data = parse_bisbas(d)
+	BISBAS_data = parse_bisbas(d, order="general")
 
 	# STAI-T
 	d = d.rename(columns={f"STAI_{i}":f"STAI_S_{i}" if (i <=20) else f"STAI_T_{i-20}" for i in range(1,41)})
 	STAI_data = pd.DataFrame({
-		"stai_t_state":parse_stai_state(d),
-		"stai_t_trait":parse_stai_trait(d)
+		"stai_t_state":parse_stai_state(d, order="en-1"),
+		"stai_t_trait":parse_stai_trait(d, order="en-1")
 		})
-	return sub_ids, age, sex, EHI_data, BFI_data, PANAS_data, KSS_data, CES_data, BISBAS_data, STAI_data
+	return sub_ids, age, sex, EHI_data, BFI_data, PANAS_data, KSS_data, CES_data, BISBAS_data, STAI_data, [f]
 
 
 def parse_phenotype_UHH(folder):
-	keys = list(pd.read_csv(folder.parents[0] / "UHH_Hamburg" / "phenotype" / "After_Codes.csv").keys())
-	d = pd.read_csv(folder.parents[0] / "UHH_Hamburg" / "phenotype" / "After_FullText.csv")
+	f1 = folder.parents[0] / "UHH" / "Other_Requested_Files" / "After_Codes.csv"
+	f2 = folder.parents[0] / "UHH" / "Other_Requested_Files" / "After_FullText.csv"
+	keys = list(pd.read_csv(f1).keys())
+	d = pd.read_csv(f2)
 	d = d.rename(columns={list(d.keys())[i]:keys[i] for i in range(len(keys))})
 
 	lab = str(folder.name)[:3]
@@ -172,12 +312,12 @@ def parse_phenotype_UHH(folder):
 	d = d.rename(columns={f"BFI1[SQ{i:03d}]":f"BFI_{i}" for i in range(1,16)})
 	for col in [f"BFI_{i}" for i in range(1,16)]:
 		d[col] = d[col].apply(lambda x: "n/a" if str(x) in ["nan", "na", "NaN", "None"] else str(x)[0])
-	BFI_data = parse_bfi_s(d)
+	BFI_data = parse_bfi_s15(d, order="ger-1")
 
 	# PANAS
 	for i in range(1,21):  # fill with n/a
 		d[f"PANAS_S_{i}"] = ['n/a']*len(d)
-	PANAS_data = parse_panas_state(d)
+	PANAS_data = parse_panas_state(d, order="ger-1")
 	
 	# KSS
 	d["KSS"] = ['n/a'] * len(d)  # not done
@@ -210,7 +350,7 @@ def parse_phenotype_UHH(folder):
 		}
 	for col in [f"BISBAS_{i}" for i in range(1,25)]:
 		d[col] = d[col].apply(lambda x: "n/a" if str(x) in ["nan", "na", "NaN", "None"] else BISBAS_dict[x])
-	BISBAS_data = parse_bisbas(d)
+	BISBAS_data = parse_bisbas(d, order="general")
 
 	# STAI-T
 	for i in range(1,21):  # fill with n/a
@@ -218,19 +358,21 @@ def parse_phenotype_UHH(folder):
 		d[f"STAI_T_{i}"] = ['n/a']*len(d)
 
 	STAI_data = pd.DataFrame({
-		"stai_t_state":parse_stai_state(d),
-		"stai_t_trait":parse_stai_trait(d)
+		"stai_t_state":parse_stai_state(d, order="ger-1"),
+		"stai_t_trait":parse_stai_trait(d, order="ger-1")
 		})
 	
-	return sub_ids, age, sex, EHI_data, BFI_data, PANAS_data, KSS_data, CES_data, BISBAS_data, STAI_data
+	return sub_ids, age, sex, EHI_data, BFI_data, PANAS_data, KSS_data, CES_data, BISBAS_data, STAI_data, [f1, f2]
 
 
 def parse_phenotype_UNL(folder):
+	f1 = folder / "Other_Requested_Files" / "UNL_Compiled_1.csv"
+	f2 = folder / "Other_Requested_Files" / "UNL_Compiled_2.csv"
 	omitlines = 1
-	d1 = pd.read_csv(folder / "phenotype" / "UNL_Compiled_1.csv", sep=";")
+	d1 = pd.read_csv(f1, sep=";")
 	#d1_info = d1[:omitlines]
 	d1 = d1[omitlines:].reset_index(drop=True)
-	d2 = pd.read_csv(folder / "phenotype" / "UNL_Compiled_2.csv", sep=";")
+	d2 = pd.read_csv(f2, sep=";")
 	#d2_info = d2[:omitlines]
 	d2 = d2[omitlines:].reset_index(drop=True)
 	
@@ -249,11 +391,11 @@ def parse_phenotype_UNL(folder):
 
 	# BFI
 	d2 = d2.rename(columns={f"BigFive-15_{i}":f"BFI_{i}" for i in range(1,16)})
-	BFI_data = parse_bfi_s(d2)  # 1-5 scale. subtract 3
+	BFI_data = parse_bfi_s15(d2, order="en-1")
 
 	# PANAS
 	d1 = d1.rename(columns={f"PANAS State Mood_{i}":f"PANAS_S_{i}" for i in range(1,21)})
-	PANAS_data = parse_panas_state(d1)
+	PANAS_data = parse_panas_state(d1, order="en-1")
 
 	# KSS
 	d1 = d1.rename(columns={"KSQ-2":"KSS"})
@@ -290,23 +432,35 @@ def parse_phenotype_UNL(folder):
 		}
 	for col in [f"BISBAS_{i}" for i in range(1,25)]:
 		d2[col] = d2[col].apply(lambda x: "n/a" if str(x) in ["nan", "na", "NaN", "None"] else BISBAS_dict[x])
-	BISBAS_data = parse_bisbas(d2)
+	BISBAS_data = parse_bisbas(d2, order="general")
 
 	# STAI-T
 	d1 = d1.rename(columns={f"STAI-Part-1_{i}":f"STAI_S_{i}" for i in range(1,21)})
 	d1 = d1.rename(columns={f"STAI-Part-2_{i}":f"STAI_T_{i}" for i in range(1,21)})
 	STAI_data = pd.DataFrame({
-		"stai_t_state":parse_stai_state(d1),
-		"stai_t_trait":parse_stai_trait(d1)
+		"stai_t_state":parse_stai_state(d1, order="en-1"),
+		"stai_t_trait":parse_stai_trait(d1, order="en-1")
 		})
 	
-	return sub_ids, age, sex, EHI_data, BFI_data, PANAS_data, KSS_data, CES_data, BISBAS_data, STAI_data
+	return sub_ids, age, sex, EHI_data, BFI_data, PANAS_data, KSS_data, CES_data, BISBAS_data, STAI_data, [f1, f2]
+
+quest_parser = dict(
+	BON=parse_phenotype_BON,
+	CIM=parse_phenotype_UHH,
+	#EUR=events_EUR,
+	GUF=parse_phenotype_UHH,
+	MSH=parse_phenotype_UHH,
+	TUD=parse_phenotype_TUD,
+	#UCM=events_BIOSEMI,
+	UGE=parse_phenotype_UGE,
+	UHH=parse_phenotype_UHH,
+	UNL=parse_phenotype_UNL,
+	URE=parse_phenotype_UHH
+	)
 
 
 # run script
 if __name__=="__main__":
-	BIDS_folder = "BIDS-data-brainvision"
-	BIDS_root = Path(f"/Users/phtn595/Datasets/WIP/{BIDS_folder}")
 
 	cwd = Path(__file__).parents[0]
 	
@@ -319,28 +473,27 @@ if __name__=="__main__":
 	if purge:
 		purge_folder(BIDS_root)
 
-	# update CHANGES
-	update_changes(BIDS_root, "- add questionnaires to phenotype folder.")
-
 	# do
 	for study in ["HajcakHolroyd2005"]:
 		print("---")
 		print(study)
-		labs = (BIDS_root.parents[0] / "sourcedata" / study).glob("*/")
-		for lab_folder in labs:
-			lab = str(lab_folder.name)[:3]
+		for lab in labs:
+			lab_folder = RAW_folder / study / lab
 			print("-"+lab)
-			if lab == ".DS":
-				continue
-			elif lab in ["UGE", "UNL", "BON"]:
-				parsefun = locals()[f"parse_phenotype_{lab}"]
-				sub_ids, age, sex, EHI, BFI, PANAS_STATE, KSS, CES, BISBAS, STAI = parsefun(lab_folder)
-				handedness, EHI_LQ = list(EHI['EHI_handedness']), list(EHI['EHI_LQ'])
-			elif lab in ["UHH", "CIM", "MSH", "GUF", "URE"]:
-				sub_ids, age, sex, EHI, BFI, PANAS_STATE, KSS, CES, BISBAS, STAI = parse_phenotype_UHH(lab_folder)
-				handedness, EHI_LQ = list(EHI['EHI_handedness']), list(EHI['EHI_LQ'])
-			else:
-				sub_ids = []
+
+			# load data
+			if lab not in quest_parser.keys():
+				raise NotImplementedError
+			sub_ids, age, sex, EHI, BFI, PANAS_STATE, KSS, CES, BISBAS, STAI, rawfiles = quest_parser[lab](lab_folder)
+			handedness, EHI_LQ = list(EHI['EHI_handedness']), list(EHI['EHI_LQ'])
+
+			# copy sourcefile
+			for rawfile in rawfiles:
+				BIDS_sourcefile = BIDS_sourcedata / "phenotype" / lab / rawfile.name
+				if not BIDS_sourcefile.exists():
+					BIDS_sourcefile.parent.mkdir(parents=True, exist_ok=True)
+					copy(rawfile, BIDS_sourcefile)  # For Python 3.8+, otherwise must be str
+					
 			for i, sub_label in enumerate(sub_ids):
 				participants_tsv = pd.read_csv(BIDS_root / 'participants.tsv', sep='\t').to_dict('list')
 				if sub_label in list(participants_tsv["participant_id"]):
@@ -419,4 +572,9 @@ if __name__=="__main__":
 
 	# clean up and leave
 	sort_bids(BIDS_root)
+
+	# update CHANGES
+	if changelog:
+		update_changes(BIDS_root, "- add questionnaires to phenotype folder.")
+
 	print("\ndone!")

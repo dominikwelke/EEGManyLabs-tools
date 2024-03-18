@@ -17,6 +17,8 @@ import pandas as pd
 from datetime import datetime
 from bids_validator import BIDSValidator
 
+from .bids_phenotype import pheno_dtypes
+
 
 def drop_participant(BIDS_root, participant_id):
     participants_tsv = pd.read_csv(BIDS_root / "participants.tsv", sep="\t")
@@ -95,7 +97,7 @@ def purge_folder(BIDS_root):
 
 def sort_bids(BIDS_root):
     # participants_tsv
-    participants_tsv = pd.read_csv(BIDS_root / "participants.tsv", sep="\t")
+    participants_tsv = pd.read_csv(BIDS_root / "participants.tsv", sep="\t", dtype={"age":"Int64"})
     participants_tsv.sort_values("participant_id", inplace=True)
     participants_tsv.to_csv(
         BIDS_root / "participants.tsv", sep="\t", index=False, na_rep="n/a"
@@ -103,7 +105,7 @@ def sort_bids(BIDS_root):
 
     # phenotype
     for quest_tsv_file in (BIDS_root / "phenotype").glob("*.tsv"):
-        quest_tsv = pd.read_csv(quest_tsv_file, sep="\t")
+        quest_tsv = pd.read_csv(quest_tsv_file, sep="\t",dtype=pheno_dtypes[quest_tsv_file.with_suffix("").name])
         quest_tsv.sort_values("participant_id", inplace=True)
         quest_tsv.to_csv(quest_tsv_file, sep="\t", index=False, na_rep="n/a")
 

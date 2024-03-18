@@ -9,9 +9,12 @@
 			"Dominik Welke (curation)",
 			"EEGManyLabs replication teams (creation)"
 		],
-		"Acknowledgements":"str",
+		"Acknowledgements":"we thank all contributing labs for collecting these data.",
 		"HowToAcknowledge":"please cite EEGManyLabs (https://doi.org/10.1016/j.cortex.2021.03.013)",
-		"Funding":["list of str for grants etc"],
+		"Funding":[
+			"DFG",
+			"BBSRC"
+		],
 		"EthicsApprovals":["list or str for involved ethics approvals"],
 		"DatasetDOI":"The Digital Object Identifier of the dataset (not the corresponding paper). DOIs SHOULD be expressed as a valid URI; bare DOIs such as 10.0.2.3/dfjj.10 are DEPRECATED."
 	},
@@ -106,27 +109,27 @@
 		    },
 		    "bfi_ext": {
 		        "LongName": "BFI Extraversion Domain Subscore",
-		        "Description": "can take values in range [3,15]. Collected using BFI-S Form, see Soto and John (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68:69-81",
+		        "Description": "can take values in range [3,21]. Collected using 15 item BFI-S Form, see Soto and John (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68:69-81",
 		        "Units": "none"
 		    },
 		    "bfi_agr": {
 		        "LongName": "BFI Agreeableness Domain Subscore",
-		        "Description": "can take values in range [3,15]. Collected using BFI-S Form, see Soto and John (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68:69-81",
+		        "Description": "can take values in range [3,21]. Collected using 15 item BFI-S Form, see Soto and John (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68:69-81",
 		        "Units": "none"
 		    },
 		    "bfi_con": {
 		        "LongName": "BFI Conscientiousness Domain Subscore",
-		        "Description": "can take values in range [3,15]. Collected using BFI-S Form, see Soto and John (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68:69-81",
+		        "Description": "can take values in range [3,21]. Collected using 15 item BFI-S Form, see Soto and John (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68:69-81",
 		        "Units": "none"
 		    },
 		    "bfi_neg": {
 		        "LongName": "BFI Negative Emotionality Domain Subscore",
-		        "Description": "can take values in range [3,15]. Collected using BFI-S Form, see Soto and John (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68:69-81",
+		        "Description": "can take values in range [3,21]. Collected using 15 item BFI-S Form, see Soto and John (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68:69-81",
 		        "Units": "none"
 		    },
 		    "bfi_ope": {
 		        "LongName": "BFI Open-Mindedness Domain Subscore",
-		        "Description": "can take values in range [3,15]. Collected using BFI-S Form, see Soto and John (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68:69-81",
+		        "Description": "can take values in range [3,21]. Collected using 15 item BFI-S Form, see Soto and John (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68:69-81",
 		        "Units": "none"
 		    }
 		},
