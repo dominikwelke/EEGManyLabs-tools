@@ -97,7 +97,9 @@ def purge_folder(BIDS_root):
 
 def sort_bids(BIDS_root):
     # participants_tsv
-    participants_tsv = pd.read_csv(BIDS_root / "participants.tsv", sep="\t", dtype={"age":"Int64"})
+    participants_tsv = pd.read_csv(
+        BIDS_root / "participants.tsv", sep="\t", dtype={"age": "Int64"}
+    )
     participants_tsv.sort_values("participant_id", inplace=True)
     participants_tsv.to_csv(
         BIDS_root / "participants.tsv", sep="\t", index=False, na_rep="n/a"
@@ -105,7 +107,11 @@ def sort_bids(BIDS_root):
 
     # phenotype
     for quest_tsv_file in (BIDS_root / "phenotype").glob("*.tsv"):
-        quest_tsv = pd.read_csv(quest_tsv_file, sep="\t",dtype=pheno_dtypes[quest_tsv_file.with_suffix("").name])
+        quest_tsv = pd.read_csv(
+            quest_tsv_file,
+            sep="\t",
+            dtype=pheno_dtypes[quest_tsv_file.with_suffix("").name],
+        )
         quest_tsv.sort_values("participant_id", inplace=True)
         quest_tsv.to_csv(quest_tsv_file, sep="\t", index=False, na_rep="n/a")
 
@@ -127,4 +133,3 @@ def validate_bids(BIDS_root, verbose=True):
     n_incompatible = len(validation) - sum(validation)
     if n_incompatible != 0:
         raise ValueError(f"{n_incompatible} filename(s) not BIDS compatible!")
-

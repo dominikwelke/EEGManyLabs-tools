@@ -14,14 +14,19 @@ import pandas as pd
 import numpy as np
 
 pheno_dtypes = {
-    "bfi_s":{k:"Int64" for k in ["bfi_ext","bfi_agr","bfi_con","bfi_neg","bfi_ope"]},
-    "bisbas":{k:"Int64" for k in ["bis","bas_drive","bas_funseek","bas_rewardresponse"]},
-    "ces":{"ces_d":"Int64"},
-    "ehi":{},
-    "kss":{"kss":"Int64"},
-    "panas_state":{k:"Int64" for k in ["panas_s_PA", "panas_s_NA"]},
-    "stai_t":{k:"Int64" for k in ["stai_t_state","stai_t_trait"]},
+    "bfi_s": {
+        k: "Int64" for k in ["bfi_ext", "bfi_agr", "bfi_con", "bfi_neg", "bfi_ope"]
+    },
+    "bisbas": {
+        k: "Int64" for k in ["bis", "bas_drive", "bas_funseek", "bas_rewardresponse"]
+    },
+    "ces": {"ces_d": "Int64"},
+    "ehi": {},
+    "kss": {"kss": "Int64"},
+    "panas_state": {k: "Int64" for k in ["panas_s_PA", "panas_s_NA"]},
+    "stai_t": {k: "Int64" for k in ["stai_t_state", "stai_t_trait"]},
 }
+
 
 # questionnaire parser defs
 def parse_kss(data_in):
@@ -150,7 +155,7 @@ def parse_bfi_s15(data_in, order=None, skipna=False):
     requires columns named 'BFI_[1-15]'
     data range [1-7] or nan
     """
-    
+
     # check input
     BFI_keys = [f"BFI_{i}" for i in range(1, 16)]
     assert sum([k in data_in.keys() for k in BFI_keys]) == 15
@@ -163,40 +168,40 @@ def parse_bfi_s15(data_in, order=None, skipna=False):
         assert BFI_data.max(axis=None, skipna=True) <= 3
 
     # transcribe
-    if order=='':
-        REV_keys = [f"BFI_{i}" for i in [1,3,7,8,10,14]]
-        EXT_keys = [f"BFI_{i}" for i in [1,6,11]]
-        AGR_keys = [f"BFI_{i}" for i in [2,7,12]]
-        CON_keys = [f"BFI_{i}" for i in [3,8,13]]
-        NEG_keys = [f"BFI_{i}" for i in [4,9,14]]
-        OPE_keys = [f"BFI_{i}" for i in [5,10,15]]
-    elif order=='ger-1':
+    if order == "":
+        REV_keys = [f"BFI_{i}" for i in [1, 3, 7, 8, 10, 14]]
+        EXT_keys = [f"BFI_{i}" for i in [1, 6, 11]]
+        AGR_keys = [f"BFI_{i}" for i in [2, 7, 12]]
+        CON_keys = [f"BFI_{i}" for i in [3, 8, 13]]
+        NEG_keys = [f"BFI_{i}" for i in [4, 9, 14]]
+        OPE_keys = [f"BFI_{i}" for i in [5, 10, 15]]
+    elif order == "ger-1":
         # german version
         # see https://zis.gesis.org/skala/Schupp-Gerlitz-Big-Five-Inventory-SOEP-(BFI-S)#
-        REV_keys = [f"BFI_{i}" for i in [3,6,8,15]]
-        EXT_keys = [f"BFI_{i}" for i in [2,6,9]]
-        AGR_keys = [f"BFI_{i}" for i in [3,7,13]]
-        CON_keys = [f"BFI_{i}" for i in [1,8,12]]
-        NEG_keys = [f"BFI_{i}" for i in [5,11,15]]
-        OPE_keys = [f"BFI_{i}" for i in [4,10,14]]
-    elif order=="en-1":
+        REV_keys = [f"BFI_{i}" for i in [3, 6, 8, 15]]
+        EXT_keys = [f"BFI_{i}" for i in [2, 6, 9]]
+        AGR_keys = [f"BFI_{i}" for i in [3, 7, 13]]
+        CON_keys = [f"BFI_{i}" for i in [1, 8, 12]]
+        NEG_keys = [f"BFI_{i}" for i in [5, 11, 15]]
+        OPE_keys = [f"BFI_{i}" for i in [4, 10, 14]]
+    elif order == "en-1":
         # english version
         # see https://www.oecd.org/skills/piaac/Annex-A-Measures-of-the-big-five-dimensions.pdf
-        REV_keys = [f"BFI_{i}" for i in [3,6,10,14]]
-        EXT_keys = [f"BFI_{i}" for i in [4,5,6]]
-        AGR_keys = [f"BFI_{i}" for i in [10,11,12]]
-        CON_keys = [f"BFI_{i}" for i in [13,14,15]]
-        NEG_keys = [f"BFI_{i}" for i in [1,2,3]]
-        OPE_keys = [f"BFI_{i}" for i in [7,8,9]]
+        REV_keys = [f"BFI_{i}" for i in [3, 6, 10, 14]]
+        EXT_keys = [f"BFI_{i}" for i in [4, 5, 6]]
+        AGR_keys = [f"BFI_{i}" for i in [10, 11, 12]]
+        CON_keys = [f"BFI_{i}" for i in [13, 14, 15]]
+        NEG_keys = [f"BFI_{i}" for i in [1, 2, 3]]
+        OPE_keys = [f"BFI_{i}" for i in [7, 8, 9]]
     else:
         raise NotImplementedError
 
-    BFI_data.loc[:,REV_keys] *= -1
-    BFI_data["bfi_ext"] = BFI_data.loc[:,EXT_keys].sum(axis=1,skipna=skipna)
-    BFI_data["bfi_agr"] = BFI_data.loc[:,AGR_keys].sum(axis=1,skipna=skipna)
-    BFI_data["bfi_con"] = BFI_data.loc[:,CON_keys].sum(axis=1,skipna=skipna)
-    BFI_data["bfi_neg"] = BFI_data.loc[:,NEG_keys].sum(axis=1,skipna=skipna)
-    BFI_data["bfi_ope"] = BFI_data.loc[:,OPE_keys].sum(axis=1,skipna=skipna)
+    BFI_data.loc[:, REV_keys] *= -1
+    BFI_data["bfi_ext"] = BFI_data.loc[:, EXT_keys].sum(axis=1, skipna=skipna)
+    BFI_data["bfi_agr"] = BFI_data.loc[:, AGR_keys].sum(axis=1, skipna=skipna)
+    BFI_data["bfi_con"] = BFI_data.loc[:, CON_keys].sum(axis=1, skipna=skipna)
+    BFI_data["bfi_neg"] = BFI_data.loc[:, NEG_keys].sum(axis=1, skipna=skipna)
+    BFI_data["bfi_ope"] = BFI_data.loc[:, OPE_keys].sum(axis=1, skipna=skipna)
 
     BFI = BFI_data[["bfi_ext", "bfi_agr", "bfi_con", "bfi_neg", "bfi_ope"]] + 3 * t
     return BFI
@@ -223,11 +228,11 @@ def parse_panas_state(data_in, order=None, skipna=False):
     # transcribe
     if order == "en-1":
         # see https://ogg.osu.edu/media/documents/MB%20Stream/PANAS.pdf
-        PA_keys = [f"PANAS_S_{i}" for i in [1,3,5,9,10,12,14,16,17,19]]
-        NA_keys = [f"PANAS_S_{i}" for i in [2,4,6,7,8,11,13,15,18,20]]
+        PA_keys = [f"PANAS_S_{i}" for i in [1, 3, 5, 9, 10, 12, 14, 16, 17, 19]]
+        NA_keys = [f"PANAS_S_{i}" for i in [2, 4, 6, 7, 8, 11, 13, 15, 18, 20]]
     elif order == "ger-1":
-        PA_keys = [f"PANAS_S_{i}" for i in [1,3,4,6,10,11,13,15,17,18]]
-        NA_keys = [f"PANAS_S_{i}" for i in [2,5,7,8,9,12,14,16,19,20]]
+        PA_keys = [f"PANAS_S_{i}" for i in [1, 3, 4, 6, 10, 11, 13, 15, 17, 18]]
+        NA_keys = [f"PANAS_S_{i}" for i in [2, 5, 7, 8, 9, 12, 14, 16, 19, 20]]
     else:
         raise NotImplementedError
 
@@ -258,16 +263,16 @@ def parse_stai_state(data_in, order=None, skipna=False):
     # apply reverse coding
     if order == "ger-1":
         # verified for TUD/UHH
-        REV_keys = [f"STAI_S_{i}" for i in [1,2,5,8,10,11,15,16,19,20]]
-    elif order=="en-1":
+        REV_keys = [f"STAI_S_{i}" for i in [1, 2, 5, 8, 10, 11, 15, 16, 19, 20]]
+    elif order == "en-1":
         # see https://arc.psych.wisc.edu/self-report/state-trait-anxiety-inventory-sta/
-        REV_keys = [f"STAI_S_{i}" for i in [1,2,5,8,10,11,15,16,19,20]]
+        REV_keys = [f"STAI_S_{i}" for i in [1, 2, 5, 8, 10, 11, 15, 16, 19, 20]]
     else:
         raise NotImplementedError
     STAI_S_data.loc[:, REV_keys] *= -1
 
     # transcribe
-    STAI_S = STAI_S_data.sum(axis=1, skipna=skipna) + 20*t
+    STAI_S = STAI_S_data.sum(axis=1, skipna=skipna) + 20 * t
 
     return STAI_S
 
@@ -291,15 +296,15 @@ def parse_stai_trait(data_in, order=None, skipna=False):
 
     # apply reverse coding
     if order == "ger-1":
-        REV_keys = [f"STAI_T_{i}" for i in [1,6,7,10,13,16,19]]
-    elif order=="en-1":
+        REV_keys = [f"STAI_T_{i}" for i in [1, 6, 7, 10, 13, 16, 19]]
+    elif order == "en-1":
         # see https://arc.psych.wisc.edu/self-report/state-trait-anxiety-inventory-sta/
-        REV_keys = [f"STAI_T_{i}" for i in [1,3,6,7,10,13,14,16,19]]
+        REV_keys = [f"STAI_T_{i}" for i in [1, 3, 6, 7, 10, 13, 14, 16, 19]]
     else:
         raise NotImplementedError
     STAI_T_data.loc[:, REV_keys] *= -1
 
     # transcribe
-    STAI_T = STAI_T_data.sum(axis=1, skipna=skipna) + 20*t
+    STAI_T = STAI_T_data.sum(axis=1, skipna=skipna) + 20 * t
 
     return STAI_T

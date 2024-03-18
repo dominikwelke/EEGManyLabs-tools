@@ -3,45 +3,56 @@ from pathlib import Path
 import sys
 import pandas as pd
 
-from eegmanylabs_bids.BIDS_utils import sort_bids
+from eegmanylabs_bids.bids_utils import sort_bids
+
 
 def make_base_dummy(BIDS_root, sub_id, t=1):
-	participants_tsv = pd.read_csv(BIDS_root / 'participants.tsv', sep='\t').to_dict('list')
-	assert(sub_id not in list(participants_tsv["participant_id"]))
-	
-	# add
-	print(participants_tsv)
-	participants_tsv["participant_id"].append(sub_id)
-	participants_tsv["species"].append("homo sapiens")
-	participants_tsv["age"].append("n/a")
-	participants_tsv["sex"].append("n/a")
-	participants_tsv["handedness"].append("n/a")
-	participants_tsv["replication"].append("HajcakHolroy2005")
-	if isinstance(t,str):
-		participants_tsv["lab"].append(t)
-	# save
-	pd.DataFrame(participants_tsv).to_csv(BIDS_root / "participants.tsv", sep='\t', index=False,na_rep='n/a')
+    participants_tsv = pd.read_csv(BIDS_root / "participants.tsv", sep="\t").to_dict(
+        "list"
+    )
+    assert sub_id not in list(participants_tsv["participant_id"])
+
+    # add
+    print(participants_tsv)
+    participants_tsv["participant_id"].append(sub_id)
+    participants_tsv["species"].append("homo sapiens")
+    participants_tsv["age"].append("n/a")
+    participants_tsv["sex"].append("n/a")
+    participants_tsv["handedness"].append("n/a")
+    participants_tsv["replication"].append("HajcakHolroy2005")
+    if isinstance(t, str):
+        participants_tsv["lab"].append(t)
+    # save
+    pd.DataFrame(participants_tsv).to_csv(
+        BIDS_root / "participants.tsv", sep="\t", index=False, na_rep="n/a"
+    )
 
 
 def make_eeg_dummy(BIDS_root, sub_id):
-	(BIDS_root / sub_id / "eeg").mkdir(parents=True)
-	tasks = ['DOORS', 'REST']
-	for task in tasks:
-		dummy = BIDS_root / sub_id / "eeg" / f"sub-DUMMY01_task-{task}_eeg"
-		dummy_json = {"TaskName":task,"EEGReference":"Cz","SamplingFrequency":1000,"PowerLineFrequency":50,"SoftwareFilters":"n/a"}
-		with dummy.with_suffix(".edf").open('w+') as f:
-			f.write("")
-		with dummy.with_suffix(".json").open('w+') as f:
-			json.dump(dummy_json,f,indent=4)
+    (BIDS_root / sub_id / "eeg").mkdir(parents=True)
+    tasks = ["DOORS", "REST"]
+    for task in tasks:
+        dummy = BIDS_root / sub_id / "eeg" / f"sub-DUMMY01_task-{task}_eeg"
+        dummy_json = {
+            "TaskName": task,
+            "EEGReference": "Cz",
+            "SamplingFrequency": 1000,
+            "PowerLineFrequency": 50,
+            "SoftwareFilters": "n/a",
+        }
+        with dummy.with_suffix(".edf").open("w+") as f:
+            f.write("")
+        with dummy.with_suffix(".json").open("w+") as f:
+            json.dump(dummy_json, f, indent=4)
 
 
 def make_phenotype_dummy(BIDS_root, sub_id):
-	questionaires = ["EHI", "BFI_S", "BISBAS", "CES", "STAI_T_Y2", "PANAS", "KSS"]
-	# JSONs
-	with open('BIDS_template.json', 'r') as f:
-		desc_json = json.load(f)["phenotype_jsons"]
-	
-	"""
+    questionaires = ["EHI", "BFI_S", "BISBAS", "CES", "STAI_T_Y2", "PANAS", "KSS"]
+    # JSONs
+    with open("BIDS_template.json", "r") as f:
+        desc_json = json.load(f)["phenotype_jsons"]
+
+    """
 	desc_json = {
 		"EHI": {
 		    "participant_id": {
@@ -125,39 +136,42 @@ def make_phenotype_dummy(BIDS_root, sub_id):
 	}
 	"""
 
-	# create files
-	for q in questionaires:
-		d_json = desc_json[q]
-		file = BIDS_root / "phenotype" / q.lower()
-		if not file.with_suffix('.json').exists(): 
-			with file.with_suffix('.json').open('w+') as f:
-				json.dump(d_json,f,indent=4)
-		if not file.with_suffix('.tsv').exists(): 
-			d_tsv = {k:["n/a"] for k in d_json.keys()}
-			d_tsv["participant_id"] = [sub_id]
-		else:
-			d_tsv = pd.read_csv(file.with_suffix('.tsv'), sep='\t').to_dict('list')
-			for k in d_json.keys():
-				d_tsv[k].append(sub_id if (k=='participant_id') else 'n/a')
+    # create files
+    for q in questionaires:
+        d_json = desc_json[q]
+        file = BIDS_root / "phenotype" / q.lower()
+        if not file.with_suffix(".json").exists():
+            with file.with_suffix(".json").open("w+") as f:
+                json.dump(d_json, f, indent=4)
+        if not file.with_suffix(".tsv").exists():
+            d_tsv = {k: ["n/a"] for k in d_json.keys()}
+            d_tsv["participant_id"] = [sub_id]
+        else:
+            d_tsv = pd.read_csv(file.with_suffix(".tsv"), sep="\t").to_dict("list")
+            for k in d_json.keys():
+                d_tsv[k].append(sub_id if (k == "participant_id") else "n/a")
 
-		pd.DataFrame(d_tsv).to_csv(file.with_suffix('.tsv'),sep='\t',index=False,na_rep='n/a')
+        pd.DataFrame(d_tsv).to_csv(
+            file.with_suffix(".tsv"), sep="\t", index=False, na_rep="n/a"
+        )
+
 
 # run
-if __name__ == '__main__':
-	BIDS_root = Path("./BIDS-data")
-	print(sys.argv)
-	if len(sys.argv) == 2:
-		sub_id, t = sys.argv[-1], 1
-	elif len(sys.argv) == 3:
-		sub_id, t = sys.argv[-2:]
-	else:
-		raise ValueError
-	assert(isinstance(sub_id,str))
-	if 'sub-' not in sub_id:
-		sub_id = 'sub-'+sub_id
+if __name__ == "__main__":
+    BIDS_root = Path("./BIDS-data")
+    print(sys.argv)
+    if len(sys.argv) == 2:
+        sub_id, t = sys.argv[-1], 1
+    elif len(sys.argv) == 3:
+        sub_id, t = sys.argv[-2:]
+    else:
+        raise ValueError
+    assert isinstance(sub_id, str)
+    if "sub-" not in sub_id:
+        sub_id = "sub-" + sub_id
 
-	make_base_dummy(BIDS_root, sub_id, t)
-	make_eeg_dummy(BIDS_root, sub_id)
-	make_phenotype_dummy(BIDS_root, sub_id)
+    make_base_dummy(BIDS_root, sub_id, t)
+    make_eeg_dummy(BIDS_root, sub_id)
+    make_phenotype_dummy(BIDS_root, sub_id)
 
-	sort_bids(BIDS_root)
+    sort_bids(BIDS_root)
