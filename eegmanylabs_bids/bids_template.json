@@ -12,11 +12,11 @@
 		"Acknowledgements":"we thank all contributing labs for collecting these data.",
 		"HowToAcknowledge":"please cite EEGManyLabs (https://doi.org/10.1016/j.cortex.2021.03.013)",
 		"Funding":[
-			"DFG",
-			"BBSRC"
+			"DFG (PA 4005/1-1) provided to Y.G. Pavlov",
+			"BBSRC (BB/X008428/1) provided to F. Mushtaq"
 		],
-		"EthicsApprovals":["list or str for involved ethics approvals"],
-		"DatasetDOI":"The Digital Object Identifier of the dataset (not the corresponding paper). DOIs SHOULD be expressed as a valid URI; bare DOIs such as 10.0.2.3/dfjj.10 are DEPRECATED."
+		"EthicsApprovals":["see individual replications"],
+		"DatasetDOI":"tbd"
 	},
 	"participants_json": {
 		"participant_id": {
@@ -56,9 +56,9 @@
 	    }
 	},
 	"eeg_json":{
-		"TaskName":"n/a",
-		"TaskDescription":"n/a",
-		"Instructions":"n/a",
+		"TaskName":"EEGManyLabs Resting State",
+		"TaskDescription":"8 minutes of resting state EEG data (4 minutes with eyes closed and 4 minutes with eyes open, recorded in 1 minute blocks). Sequence of eyes Open and eyes Closed blocks is inverted for each other participant: o-c-c-o-c-o-o-c or c-o-o-c-o-c-c-o. This is done to counteract fatigue or habituation effects in one condition and keep participants from falling asleep. Voice commands are given to the participants to open and close their eyes or keep their eyes open/closed, respectively. The timing of the resting state protocol relative to the main EEGManyLabs replication task is up to the replicating lab and can be before or after it.",
+		"Instructions":"Voice commands (english, as audio files) are given to the participants to open and close their eyes or keep their eyes open/closed, respectively.",
 		"InstitutionName":"n/a",
 		"InstitutionalDepartmentName":"n/a",
 		"SamplingFrequency":"REQUIRED",

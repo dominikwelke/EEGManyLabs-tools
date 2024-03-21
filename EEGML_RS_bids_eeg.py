@@ -44,12 +44,12 @@ export_format = "EDF"  # "EDF" / "BrainVision" - only used if crop=True
 crop = True
 consolidate = True  # clean missing participants from participants.tsv etc
 verbose = "ERROR"
-overwrite = False
-changelog = True
+overwrite = True  # True, False
+changelog = False
 
 ROOT_dir = Path("/Users/phtn595/Datasets/EEGManyLabs RestingState")
 BIDS_root = ROOT_dir / f"BIDS-data-{export_format.lower()}"
-BIDS_sourcedata = ROOT_dir / "sourcedata"  # BIDS_root / "sourcedata"
+BIDS_sourcedata = ROOT_dir / "BIDS-sourcedata"  # BIDS_root / "sourcedata"
 RAW_folder = Path("/Users/phtn595/Datasets/EEGManyLabs - Clean/src")
 
 labs = [
