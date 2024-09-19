@@ -5,7 +5,7 @@ EEGManyLabs resting state spin-off
 v.1.0 - 2024.01.17
     ..
 
-written by 
+written by
 Dominik Welke
 d.welke@leeds.ac.uk
 https://github.com/dominikwelke
@@ -14,10 +14,13 @@ https://github.com/dominikwelke
 import shutil
 import pandas as pd
 
+from pathlib import Path
 from datetime import datetime
 from bids_validator import BIDSValidator
 
 from .bids_phenotype import pheno_dtypes
+
+BIDS_readme = (Path(__file__).parents[0] / "bids_readme.txt").resolve()
 
 
 def drop_participant(BIDS_root, participant_id):
@@ -81,6 +84,12 @@ def update_changes(BIDS_root, message="- add questionnaires to phenotype folder.
         f.write(log + hist)
 
 
+def update_readme(BIDS_root):
+    # copy README file
+    with (BIDS_root / "README").open("w+") as f:
+        f.write(BIDS_readme.read_text())  # for text files
+
+
 def purge_folder(BIDS_root):
     participants_tsv = pd.read_csv(BIDS_root / "participants.tsv", sep="\t").to_dict(
         "list"
@@ -114,6 +123,31 @@ def sort_bids(BIDS_root):
         )
         quest_tsv.sort_values("participant_id", inplace=True)
         quest_tsv.to_csv(quest_tsv_file, sep="\t", index=False, na_rep="n/a")
+
+
+def consolidate_bids(BIDS_root, verbose=True, **kwargs):
+    if verbose:
+        print(
+            "\nupdating BIDS participants.tsv (removing entries with missing eeg / adding entries with missing questionnaires):"
+        )
+    participant_ids_tsv = list(
+        pd.read_csv(BIDS_root / "participants.tsv", sep="\t")["participant_id"]
+    )
+    participant_ids_eeg = [f.name for f in BIDS_root.glob("sub-*")]
+    for participant_id in participant_ids_tsv:
+        if participant_id not in participant_ids_eeg:
+            print(participant_id, "no eeg file")
+            drop_participant(BIDS_root, participant_id)
+    for participant_id in participant_ids_eeg:
+        if participant_id not in participant_ids_tsv:
+            print("sub-" + participant_id, "no entry in participants.tsv")
+            add_participant(
+                BIDS_root,
+                "sub-" + participant_id,
+                lab=participant_id[:3],
+                species="homo sapiens",
+                **kwargs,
+            )
 
 
 def validate_bids(BIDS_root, verbose=True):

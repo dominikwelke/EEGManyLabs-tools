@@ -3,13 +3,14 @@ parser functions for various questionnaires
 written for EEGManyLabs resting state spin-off
 
 v.1.0 - 2024.01.17
-    KSS, CES-D, BISBAS, EHI, BFI-S, PANAS-SF (state), STAI-T Y1 (state)/Y2 (trait), 
+    KSS, CES-D, BISBAS, EHI, BFI-S, PANAS-SF (state), STAI-T Y1 (state)/Y2 (trait),
 
-written by 
+written by
 Dominik Welke
 d.welke@leeds.ac.uk
 https://github.com/dominikwelke
 """
+
 import pandas as pd
 import numpy as np
 
