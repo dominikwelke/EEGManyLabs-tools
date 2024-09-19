@@ -2,10 +2,10 @@
 initialize a BIDS folder for EEGManyLabs replication data.
 for further info on required and recommended BIDS entries see:
 https://bids-specification.readthedocs.io/en/stable/modality-agnostic-files.html
-and especially 
+and especially
 https://bids-specification.readthedocs.io/en/stable/modality-specific-files/electroencephalography.html
 
-written by 
+written by
 Dominik Welke
 d.welke@leeds.ac.uk
 https://github.com/dominikwelke

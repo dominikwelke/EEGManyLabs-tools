@@ -1,7 +1,7 @@
 """
 BIDS utils related to eeg data
 
-written by 
+written by
 Dominik Welke
 d.welke@leeds.ac.uk
 https://github.com/dominikwelke

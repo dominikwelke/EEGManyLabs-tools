@@ -3,14 +3,15 @@ organize EEGManyLabs resting state pilot date in BIDS folder
 
 for further info on required and recommended BIDS entries see:
 https://bids-specification.readthedocs.io/en/stable/modality-agnostic-files.html
-and especially 
+and especially
 https://bids-specification.readthedocs.io/en/stable/modality-specific-files/electroencephalography.html
 
-written by 
+written by
 Dominik Welke
 d.welke@leeds.ac.uk
 https://github.com/dominikwelke
 """
+
 import json
 import pandas as pd
 import numpy as np
@@ -20,7 +21,8 @@ from pathlib import Path
 from eegmanylabs_bids.bids_init import init_folder, BIDS_template
 from eegmanylabs_bids.bids_utils import (
     update_changes,
-    purge_folder,
+    # purge_folder,
+    consolidate_bids,
     sort_bids,
     validate_bids,
 )
@@ -37,11 +39,12 @@ from eegmanylabs_bids.bids_phenotype import (
 
 # settings
 ROOT_dir = Path("/Users/phtn595/Datasets/EEGManyLabs RestingState")
-BIDS_root = ROOT_dir / "BIDS-data-test"  # "BIDS-data-brainvision"
-BIDS_sourcedata = ROOT_dir / "sourcedata"  # BIDS_root / "sourcedata"
+BIDS_root = ROOT_dir / "BIDS-data-edf"
+BIDS_sourcedata = ROOT_dir / "BIDS-sourcedata"  # BIDS_root / "sourcedata"
 RAW_folder = Path("/Users/phtn595/Datasets/EEGManyLabs - Clean/src")
 
-# labs = (BIDS_root.parents[0] / "sourcedata" / study).glob("*/")
+
+studies = ["HajcakHolroyd2005"]
 labs = [
     "BON",
     "CIM",
@@ -52,9 +55,17 @@ labs = [
     "UHH",
     "UNL",
     "URE",
-]  # UCM, EUR not possible yet (missing questionnaire data)
+    "EUR",
+]  # UCM, EUR not (fully) possible yet (missing questionnaire data)
 
 changelog = False
+
+if (BIDS_root / "participants.tsv").exists():
+    mode = "update"
+elif not BIDS_root.is_dir():
+    mode = "new"
+else:
+    raise ValueError
 
 
 # helper defs
@@ -78,6 +89,78 @@ def _rescale_data(data_in, minmax_in, minmax_out):
 
 
 # lab specidific parser
+def parse_phenotype_EUR(folder):
+    f = folder / "Other_Requested_Files" / "SocioDemoRotterdam.csv"
+    d = pd.read_csv(f)
+
+    d["participant_id"] = d["ID"].apply(lambda x: f"EUR{x[-2:]}")
+    sub_ids = list(d["participant_id"])
+
+    # basics
+    age = list(d["Age"])
+    sex = [
+        "m?" if s == 1 else "f?" for s in d["Gender"]
+    ]  # info is there, BUT only 1 or 2 and no cues for what is what, so..
+    sex = ["N/A" for s in d["Gender"]]
+
+    # handedness
+    dummy = pd.DataFrame(
+        {
+            f"EHI_{k}_{i}": ["N/A"] * len(sub_ids)
+            for i in range(1, 11)
+            for j, k in enumerate(["L", "R"])
+        }
+    )
+    EHI_data = parse_ehi(dummy)
+
+    # BFI
+    dummy = pd.DataFrame({f"BFI_{i}": ["N/A"] * len(sub_ids) for i in range(1, 16)})
+    BFI_data = parse_bfi_s15(dummy, order="ger-1")
+
+    # PANAS
+    dummy = pd.DataFrame({f"PANAS_S_{i}": ["N/A"] * len(sub_ids) for i in range(1, 21)})
+    PANAS_data = parse_panas_state(dummy, order="en-1")
+
+    # KSS
+    dummy = pd.DataFrame({"KSS": ["N/A"] * len(sub_ids)})
+    KSS_data = parse_kss(dummy)
+
+    # CES-D
+    dummy = pd.DataFrame({f"CESD_{i}": ["N/A"] * len(sub_ids) for i in range(1, 21)})
+    CES_data = parse_cesd(dummy)
+
+    # BISBAS
+    dummy = pd.DataFrame({f"BISBAS_{i}": ["N/A"] * len(sub_ids) for i in range(1, 25)})
+    BISBAS_data = parse_bisbas(dummy, order="general")
+
+    # STAI-T
+    dummy_state = pd.DataFrame(
+        {f"STAI_S_{i}": ["N/A"] * len(sub_ids) for i in range(1, 21)}
+    )
+    dummy_trait = pd.DataFrame(
+        {f"STAI_T_{i}": ["N/A"] * len(sub_ids) for i in range(1, 21)}
+    )
+    STAI_data = pd.DataFrame(
+        {
+            "stai_t_state": parse_stai_state(dummy_state, order="en-1"),
+            "stai_t_trait": parse_stai_trait(dummy_trait, order="en-1"),
+        }
+    )
+    return (
+        sub_ids,
+        age,
+        sex,
+        EHI_data,
+        BFI_data,
+        PANAS_data,
+        KSS_data,
+        CES_data,
+        BISBAS_data,
+        STAI_data,
+        [f],
+    )
+
+
 def parse_phenotype_BON(folder):
     omitlines = 3
     f = folder / "Other_Requested_Files" / "BON_Self_Report.csv"
@@ -694,11 +777,11 @@ def parse_phenotype_UNL(folder):
 quest_parser = dict(
     BON=parse_phenotype_BON,
     CIM=parse_phenotype_UHH,
-    # EUR=events_EUR,
+    EUR=parse_phenotype_EUR,
     GUF=parse_phenotype_UHH,
     MSH=parse_phenotype_UHH,
     TUD=parse_phenotype_TUD,
-    # UCM=events_BIOSEMI,
+    # UCM=parse_phenotype_UCM,
     UGE=parse_phenotype_UGE,
     UHH=parse_phenotype_UHH,
     UNL=parse_phenotype_UNL,
@@ -711,16 +794,15 @@ if __name__ == "__main__":
     cwd = Path(__file__).parents[0]
 
     # init, if nonexisting
-    if not BIDS_root.is_dir():
+    if mode == "new":
         init_folder(BIDS_root)
 
     # clean up
-    purge = True
-    if purge:
-        purge_folder(BIDS_root)
+    # if mode == "update":
+    #    purge_folder(BIDS_root)
 
     # do
-    for study in ["HajcakHolroyd2005"]:
+    for study in studies:
         print("---")
         print(study)
         for lab in labs:
@@ -758,14 +840,25 @@ if __name__ == "__main__":
                 participants_tsv = pd.read_csv(
                     BIDS_root / "participants.tsv", sep="\t"
                 ).to_dict("list")
-                if sub_label in list(participants_tsv["participant_id"]):
-                    print(f"--{sub_label} already in data")
-                    continue
-                elif "test" in sub_label.lower():
+                if "test" in sub_label.lower():
                     print(f"--{sub_label} skipped")
                     continue
+                elif f"sub-{sub_label}" in list(
+                    participants_tsv["participant_id"]
+                ):
+                    print(f"--{sub_label} updated")
+                    participants_tsv = pd.DataFrame(participants_tsv)
+                    participants_tsv.drop(
+                        participants_tsv[
+                            participants_tsv.participant_id.str.contains(
+                                "sub-" + sub_label
+                            )
+                        ].index,
+                        inplace=True,
+                    )
+                    participants_tsv = participants_tsv.to_dict("list")
                 else:
-                    print("--" + sub_label)
+                    print(f"-- {sub_label} added")
                 # fill participants.tsv
                 participants_tsv["participant_id"].append("sub-" + sub_label)
                 participants_tsv["species"].append("homo sapiens")
@@ -847,8 +940,9 @@ if __name__ == "__main__":
                         float_format="%.1f",
                     )
 
-    # validate BIDS
-    validate_bids(BIDS_root)
+        # check for mismatch between eeg and phenotype
+        if mode == "update":
+            consolidate_bids(BIDS_root, replication=study)
 
     # clean up and leave
     sort_bids(BIDS_root)
@@ -856,5 +950,8 @@ if __name__ == "__main__":
     # update CHANGES
     if changelog:
         update_changes(BIDS_root, "- add questionnaires to phenotype folder.")
+
+    # validate BIDS
+    validate_bids(BIDS_root)
 
     print("\ndone!")

@@ -3,16 +3,17 @@ organize EEGManyLabs resting state pilot date in BIDS folder
 
 for further info on required and recommended BIDS entries see:
 https://bids-specification.readthedocs.io/en/stable/modality-agnostic-files.html
-and especially 
+and especially
 https://bids-specification.readthedocs.io/en/stable/modality-specific-files/electroencephalography.html
 
-written by 
+written by
 Dominik Welke
 d.welke@leeds.ac.uk
 https://github.com/dominikwelke
 
 TODO: probe if trigger are transcribed correctly
 """
+
 import pandas as pd
 import json
 
@@ -24,8 +25,10 @@ from shutil import copy
 from eegmanylabs_bids.bids_init import init_folder
 from eegmanylabs_bids.bids_utils import (
     update_changes,
-    drop_participant,
-    add_participant,
+    update_readme,
+    # drop_participant,  # refactored
+    # add_participant,
+    consolidate_bids,
     validate_bids,
 )
 from eegmanylabs_bids.bids_eeg import update_eeg_json
@@ -52,6 +55,10 @@ BIDS_root = ROOT_dir / f"BIDS-data-{export_format.lower()}"
 BIDS_sourcedata = ROOT_dir / "BIDS-sourcedata"  # BIDS_root / "sourcedata"
 RAW_folder = Path("/Users/phtn595/Datasets/EEGManyLabs - Clean/src")
 
+chanloc_folder = Path(
+    "/Users/phtn595/Work/02_projects/2023_EEGmanylabs/2023_11-resting-state-pilot/BIDS formatting/resources/bids-formatting-Katharina/Chanloc_Files"
+)
+
 labs = [
     "BON",
     "CIM",
@@ -61,7 +68,10 @@ labs = [
     "UHH",
     "UNL",
     "URE",
-]  # EUR not possible yet (missing trigger info); TUD+UGE skipped (missing channel layout)
+    # "TUD",  # TUD still missing 1st hand ch_name info, but now trusting on Katharina's handling of it
+    "UGE",  # UGE still missing 1st hand ch_name info, but now trusting on Katharina's handling of it
+    "EUR",  # EUR still missing 1st hand trigger info, but now trusting on Katharina's handling of it
+]
 task = "resting"
 changelog_messages = [
     "- add sourcedata.",
@@ -89,8 +99,43 @@ def events_BIOSEMI(raw, event_id, beh_file=None):
 
 
 def events_EUR(raw, event_id, beh_file=None):
-    # tbd
+    # from mne.viz import plot_events    # tbd
     events = find_events(raw, initial_event=False, verbose=verbose)
+    # adaptation for EUR
+    # 1) somehow trigger id and duration are 256 bigger than they should be, so i will assume here, that time is also shifted. for resting state the potential damage is small, but for the doors task we should definitely doublecheck!!!
+    if (
+        not sum(events[:, 2] == 253) == 8
+    ):  # there is (of course) an exception to this rule :/ i.e. sub-EUR32
+        events -= 256
+    # 2) 70/71 trigger are shifted somewhere random (+ see below)
+    events[events[:, 2] == 250, 2] = 70
+    events[events[:, 2] == 65536, 2] = 71
+    # 3) the open/close order seems to be determined by whether there are 253 or 254 trigger (based on Katharina's BIDS scripts, got no response from researchers)
+    n_253, n_254 = (sum(events[:, 2] == v) for v in [253, 254])
+    if n_253 == 8:
+        t_max = events[events[:, 2] == 253, 0].max()
+        correct = [1, 2, 2, 1, 2, 1, 1, 2]
+        events[events[:, 2] == 253, 2] = correct
+        events[events[:, 2] == 254, 2] = 70
+    elif n_254 == 8:
+        t_max = events[events[:, 2] == 254, 0].max()
+        correct = [2, 1, 1, 2, 1, 2, 2, 1]
+        events[events[:, 2] == 254, 2] = correct
+    elif n_254 == 9:
+        t_max = events[events[:, 2] == 254, 0].max()
+        correct = [70, 2, 1, 1, 2, 1, 2, 2, 1]
+        events[events[:, 2] == 254, 2] = correct
+    else:
+        raise NotImplementedError
+    # 4) in 1/few cases the end trigger is missing entirely
+    if sum(events[:, 2] == 71) == 0:
+        events[-1] = [
+            t_max + 60 * 512,
+            0,
+            71,
+        ]  # add 1 minute to last open/close trigger
+    # 5) move on as normal
+    # plot_events(events)
     events = pick_events(events, include=list(event_id.values()))
     return raw, events
 
@@ -264,7 +309,43 @@ if __name__ == "__main__":
                     # specify power line frequency as required by BIDS
                     raw.info["line_freq"] = eeg_lab_specs[lab]["line_freq"]
 
-                    # set ch_types (and montage)
+                    # update channel names and types from chanloc file
+                    # i generally trust Katharina's initial assessment
+                    ch_names_old = raw.info["ch_names"]
+                    chanloc_file = chanloc_folder / eeg_lab_specs[lab]["chanloc_file"]
+                    chanlocs = pd.read_csv(
+                        chanloc_file,
+                        sep="\t",
+                    )
+                    ch_names_file = list(chanlocs["labels"])
+                    ch_types_file = list(chanlocs["type"])
+
+                    # hardcoded adaptations
+                    if participant_id == "CIM31":  # only 1 EOG channel (combined)
+                        ch_names_file = ch_names_file[:-1]
+                        ch_names_file[-1] = "EOG_unclear"
+                        ch_types_file = ch_types_file[:-1]
+                    assert len(ch_names_old) >= len(ch_names_file)
+
+                    update_ch_names = dict()
+                    update_ch_types = dict()
+                    for i, (ch_name, ch_type) in enumerate(
+                        zip(ch_names_file, ch_types_file)
+                    ):
+                        ch_name_old = ch_names_old[i]
+                        update_ch_types.update({ch_name_old: ch_type.lower()})
+                        if ch_name != ch_name_old:
+                            update_ch_names.update({ch_name_old: ch_name})
+                            # if ch_name.lower() != ch_name_old.lower():
+                            print(
+                                f"WARNING - ch_name {ch_name_old} renamed to {ch_name}"
+                            )
+
+                    raw.set_channel_types(update_ch_types, verbose=verbose)
+                    raw.rename_channels(update_ch_names, verbose=verbose)
+
+                    # set ch_types (and montage) - old version, replaced by chanloc file
+                    """
                     update_ch_types = dict()
                     update_ch_types.update(
                         {
@@ -295,6 +376,7 @@ if __name__ == "__main__":
                         }
                     )  # e.g. UHH
                     raw.set_channel_types(update_ch_types, verbose=verbose)
+                    """
                     # WIP: dont set montage for now, as electrode positions might not be stored corectly anyway
                     # (see https://mne.discourse.group/t/adding-montage-and-fiducials-in-bids-format/7102/2)
                     # montage = make_standard_montage(eeg_lab_specs[lab]["CapManufacturersModelName"])
@@ -352,7 +434,7 @@ if __name__ == "__main__":
                         save_kwargs.update(
                             dict(format=export_format, allow_preload=True)
                         )
-                        pad = 30.0  # in s
+                        pad = 70.0  # in s
                         tmin, tmax = (
                             tmin - pad if tmin > pad else 0.0,
                             tmax + pad if tmax < raw.times[-1] - pad else tmax,
@@ -414,6 +496,9 @@ if __name__ == "__main__":
                                     copy(
                                         bf, bids_path_source.parent / bf.name
                                     )  # For Python 3.8+, otherwise must be str
+                    copy(  # also copy chanloc file
+                        chanloc_file, bids_path_source.parent / chanloc_file.name
+                    )  # For Python 3.8+, otherwise must be str
 
                     participant_ids_eeg.append(participant_id)
 
@@ -433,32 +518,36 @@ if __name__ == "__main__":
         )
 
     # clean up BIDS participant list - NOT NOW
+    # check for mismatch between eeg and phenotype
     if consolidate:
-        print(
-            "\nupdating BIDS participants.tsv (removing entries with missing eeg / adding entries with missing questionnaires):"
-        )
-        for participant_id in participant_ids_tsv:
-            if participant_id[4:] not in participant_ids_eeg:
-                print(participant_id, "no eeg file")
-                drop_participant(BIDS_root, participant_id)
-        for participant_id in participant_ids_eeg:
-            if "sub-" + participant_id not in participant_ids_tsv:
-                print("sub-" + participant_id, "no entry in participants.tsv")
-                add_participant(
-                    BIDS_root,
-                    "sub-" + participant_id,
-                    replication=study,
-                    lab=participant_id[:3],
-                )
-
-
-# validate BIDS
-print("\nvalidate BIDS compliance")
-validate_bids(BIDS_root, verbose=True)
+        consolidate_bids(BIDS_root, replication=study)
+        # print(
+        #    "\nupdating BIDS participants.tsv (removing entries with missing eeg / adding entries with missing questionnaires):"
+        # )
+        # for participant_id in participant_ids_tsv:
+        #    if participant_id[4:] not in participant_ids_eeg:
+        #        print(participant_id, "no eeg file")
+        #        drop_participant(BIDS_root, participant_id)
+        # for participant_id in participant_ids_eeg:
+        #    if "sub-" + participant_id not in participant_ids_tsv:
+        #        print("sub-" + participant_id, "no entry in participants.tsv")
+        #        add_participant(
+        #            BIDS_root,
+        #            "sub-" + participant_id,
+        #            replication=study,
+        #            lab=participant_id[:3],
+        #        )
 
 # update CHANGES
 if changelog:
     for m in changelog_messages:
         update_changes(BIDS_root, m)
+
+# update README
+update_readme(BIDS_root)
+
+# validate BIDS
+print("\nvalidate BIDS compliance")
+validate_bids(BIDS_root, verbose=True)
 
 print("\ndone!")

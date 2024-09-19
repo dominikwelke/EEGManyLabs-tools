@@ -4,7 +4,7 @@ from shutil import copy2 as copy
 # settings
 export_format = "EDF"  # "EDF" / "BrainVision" - only used if crop=True
 method = "owncloud"
-overwrite = "txt"  # "txt" (all but EEG files), "all" (all files)
+overwrite = "all"  # "txt" (all but EEG files), "all" (all files)
 verbose = "ERROR"
 
 ROOT_dir = Path("/Users/phtn595/Datasets/EEGManyLabs RestingState")
@@ -31,7 +31,10 @@ if __name__ == "__main__":
 
         counter = 0
         for p in BIDS_root.rglob(pattern):
-            if not p.is_dir():
+            if (not p.is_dir()) and (p.name != ".DS_Store"):
+                (BIDS_target / p.relative_to(BIDS_root)).parent.mkdir(
+                    parents=True, exist_ok=True
+                )
                 copy(
                     p, BIDS_target / p.relative_to(BIDS_root)
                 )  # For Python 3.8+, otherwise must be str

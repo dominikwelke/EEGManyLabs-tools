@@ -1,5 +1,4 @@
-""" dataset specific settings for BIDS conversion of EEGManyLabs RestingState data
-"""
+"""dataset specific settings for BIDS conversion of EEGManyLabs RestingState data"""
 
 # EEG trigger (resting state paradigm)
 event_id = {"start": 70, "eyes open": 1, "eyes close": 2, "end": 71}
@@ -30,6 +29,7 @@ eeg_lab_specs = {
             # "DeviceSerialNumber": "n/a",
             # "HeadCircumference": "n/a",
         },
+        "chanloc_file": "Dresden_64.ced",  # trusting Katharina's initial assessments
     },
     "CIM": {
         "format": "vhdr",
@@ -55,6 +55,7 @@ eeg_lab_specs = {
             # "DeviceSerialNumber": "n/a",
             # "HeadCircumference": "n/a",
         },
+        "chanloc_file": "Mannheim_64.ced",  # trusting Katharina's initial assessments
     },
     "GUF": {
         "format": "vhdr",
@@ -69,7 +70,7 @@ eeg_lab_specs = {
             # "Instructions": "n/a",
             "InstitutionName": "Goethe University Frankfurt a.M., Germany",
             # "InstitutionalDepartmentName": "n/a",
-            "EEGPlacementScheme": "10/20",
+            "EEGPlacementScheme": "10-20",
             "EEGReference": "Cz",
             "EEGGround": "FCz",
             # "SoftwareFilters": "n/a",
@@ -80,6 +81,7 @@ eeg_lab_specs = {
             # "DeviceSerialNumber": "n/a",
             # "HeadCircumference": "n/a",
         },
+        "chanloc_file": "Frankfurt_63.ced",  # trusting Katharina's initial assessments
     },
     "MSH": {
         "format": "vhdr",
@@ -94,7 +96,7 @@ eeg_lab_specs = {
             # "Instructions": "n/a",
             "InstitutionName": "Medical School Hamburg, Germany",
             # "InstitutionalDepartmentName": "n/a",
-            "EEGPlacementScheme": "10/20",
+            "EEGPlacementScheme": "10-20",
             "EEGReference": "FCz",
             "EEGGround": "AFz",
             # "SoftwareFilters": "n/a",
@@ -105,6 +107,7 @@ eeg_lab_specs = {
             # "DeviceSerialNumber": "n/a",
             # "HeadCircumference": "n/a",
         },
+        "chanloc_file": "MSHamburg_32.ced",  # trusting Katharina's initial assessments
     },
     "BON": {
         "format": "bdf",
@@ -134,6 +137,7 @@ eeg_lab_specs = {
             # "DeviceSerialNumber": "n/a",
             # "HeadCircumference": "n/a",
         },
+        "chanloc_file": "Biosemi_38.ced",  # trusting Katharina's initial assessments
     },
     "EUR": {
         "format": "bdf",
@@ -163,6 +167,7 @@ eeg_lab_specs = {
             # "DeviceSerialNumber": "n/a",
             # "HeadCircumference": "n/a",
         },
+        "chanloc_file": "Biosemi_70.ced",  # trusting Katharina's initial assessments
     },
     "UCM": {
         "format": "bdf",
@@ -191,6 +196,7 @@ eeg_lab_specs = {
             # "DeviceSerialNumber": "n/a",
             # "HeadCircumference": "n/a",
         },
+        "chanloc_file": "Biosemi_72_UCM.ced",  # trusting Katharina's initial assessments
     },
     "UGE": {
         "format": "bdf",
@@ -219,6 +225,7 @@ eeg_lab_specs = {
             # "DeviceSerialNumber": "n/a",
             # "HeadCircumference": "n/a",
         },
+        "chanloc_file": "Biosemi_70.ced",  # trusting Katharina's initial assessments
     },
     "UHH": {
         "format": "bdf",
@@ -248,6 +255,7 @@ eeg_lab_specs = {
             # "DeviceSerialNumber": "n/a",
             # "HeadCircumference": "n/a",
         },
+        "chanloc_file": "Biosemi_70.ced",  # trusting Katharina's initial assessments
     },
     "UNL": {
         "format": "bdf",
@@ -276,6 +284,7 @@ eeg_lab_specs = {
             # "DeviceSerialNumber": "n/a",
             # "HeadCircumference": "n/a",
         },
+        "chanloc_file": "Leiden_70.ced",  # trusting Katharina's initial assessments
     },
     "URE": {
         "format": "vhdr",
@@ -298,6 +307,7 @@ eeg_lab_specs = {
             # "DeviceSerialNumber": "n/a",
             # "HeadCircumference": "n/a",
         },
+        "chanloc_file": "Regensburg_32.ced",  # trusting Katharina's initial assessments
     },
 }
 
