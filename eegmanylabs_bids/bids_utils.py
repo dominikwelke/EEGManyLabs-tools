@@ -78,6 +78,8 @@ def update_changes(BIDS_root, message="- add questionnaires to phenotype folder.
     else:
         v_old = hist.split("\t")[0].split(".")
         v_new = ".".join(v_old[:-1] + [str(int(v_old[-1]) + 1)])
+    if isinstance(message, list):
+        message = "\n\t".join(message)
     log = f"{v_new}\t{date}\n\t{message}\n"
 
     with (BIDS_root / "CHANGES").open("w+") as f:
@@ -143,8 +145,8 @@ def consolidate_bids(BIDS_root, verbose=True, **kwargs):
             print("sub-" + participant_id, "no entry in participants.tsv")
             add_participant(
                 BIDS_root,
-                "sub-" + participant_id,
-                lab=participant_id[:3],
+                participant_id,
+                lab=participant_id[4:7],
                 species="homo sapiens",
                 **kwargs,
             )

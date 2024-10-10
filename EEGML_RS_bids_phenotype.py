@@ -56,9 +56,11 @@ labs = [
     "UNL",
     "URE",
     "EUR",
-]  # UCM, EUR not (fully) possible yet (missing questionnaire data)
+    "UCM",
+]
 
 changelog = False
+changelog_message = ['labs: "EUR", "UCM" ', "- add questionnaires to phenotype folder."]
 
 if (BIDS_root / "participants.tsv").exists():
     mode = "update"
@@ -89,61 +91,264 @@ def _rescale_data(data_in, minmax_in, minmax_out):
 
 
 # lab specidific parser
-def parse_phenotype_EUR(folder):
-    f = folder / "Other_Requested_Files" / "SocioDemoRotterdam.csv"
-    d = pd.read_csv(f)
+def parse_phenotype_UCM(folder):
+    f = folder / "Questionnaire_Data" / "UCM_DATABASE_DOORS_TASK.xlsx"
+    d = pd.read_excel(f)
 
-    d["participant_id"] = d["ID"].apply(lambda x: f"EUR{x[-2:]}")
-    sub_ids = list(d["participant_id"])
+    sub_ids = list(d["2.Code"])
 
     # basics
-    age = list(d["Age"])
+    age = list(d["5.Age"].astype(int))
+
+    # sex: info code from excel sheet
     sex = [
-        "m?" if s == 1 else "f?" for s in d["Gender"]
-    ]  # info is there, BUT only 1 or 2 and no cues for what is what, so..
-    sex = ["N/A" for s in d["Gender"]]
+        "f" if s == 1 else "m" if s == 2 else "o" if s == 3 else None
+        for s in d["7.Gender"]  # only 1 and 2 present
+    ]
 
     # handedness
-    dummy = pd.DataFrame(
-        {
-            f"EHI_{k}_{i}": ["N/A"] * len(sub_ids)
-            for i in range(1, 11)
-            for j, k in enumerate(["L", "R"])
+    EHI_keys = [k for k in d.columns if "17.EDI" in k][:20]
+    EHI_rename_dict = {
+        k: f"EHI_{"L" if "LH" in k else "R" if "RH" in k else "L" if "MI" in k else None}_{(i//2)+1}"
+        for i, k in enumerate(EHI_keys)
+    }
+    d_ = d[EHI_keys].rename(columns=EHI_rename_dict)  # the other EHIs mess it up
+    EHI_data = parse_ehi(d_)
+
+    # trust their computation?
+    EHI_data_ = d[
+        ["17.EDINGBURGH 24.Laterality", "17.EDINGBURGH 23.Laterality coefficient"]
+    ].rename(
+        columns={
+            "17.EDINGBURGH 24.Laterality": "EHI_handedness",
+            "17.EDINGBURGH 23.Laterality coefficient": "EHI_LQ",
         }
     )
-    EHI_data = parse_ehi(dummy)
+    EHI_data_["EHI_handedness"] = EHI_data_["EHI_handedness"].replace(
+        {1: "r", 2: "l", 3: "a"}
+    )
+    assert EHI_data.equals(EHI_data_)
 
     # BFI
-    dummy = pd.DataFrame({f"BFI_{i}": ["N/A"] * len(sub_ids) for i in range(1, 16)})
-    BFI_data = parse_bfi_s15(dummy, order="ger-1")
+    BFI_keys = [k for k in d.columns if "20.BFI" in k][:15]
+    BFI_rename_dict = {k: f"BFI_{i+1}" for i, k in enumerate(BFI_keys)}
+    d_ = d[BFI_keys].rename(columns=BFI_rename_dict)  # the other BFIs mess it up
+    BFI_data = parse_bfi_s15(
+        d_, order="en-noreverse"
+    )  # this is what we see in the column headers, but didnt they do it in spanish?
+
+    # trust their values?
+    BFI_data_ = d[
+        [
+            "20.BFI-S 17.Extraversion Score",
+            "20.BFI-S 19.Kindness Score",
+            "20.BFI-S 20.Responsibility Score",
+            "20.BFI-S 16.Emotional Stability Score\n ",
+            "20.BFI-S 18.Opening Score",
+        ]
+    ].rename(
+        columns={
+            "20.BFI-S 16.Emotional Stability Score\n ": "bfi_neg",
+            "20.BFI-S 17.Extraversion Score": "bfi_ext",
+            "20.BFI-S 18.Opening Score": "bfi_ope",
+            "20.BFI-S 19.Kindness Score": "bfi_agr",
+            "20.BFI-S 20.Responsibility Score": "bfi_con",
+        }
+    )
+    assert BFI_data.equals(BFI_data_)  # match!
 
     # PANAS
-    dummy = pd.DataFrame({f"PANAS_S_{i}": ["N/A"] * len(sub_ids) for i in range(1, 21)})
-    PANAS_data = parse_panas_state(dummy, order="en-1")
+    PANAS_keys = [k for k in d.columns if "15.PANAS" in k][:20]
+    PANAS_rename_dict = {k: f"PANAS_S_{i+1}" for i, k in enumerate(PANAS_keys)}
+    d_ = d[PANAS_keys].rename(columns=PANAS_rename_dict)  # the other values mess it up
+    PANAS_data = parse_panas_state(
+        d_, order="en-1"
+    )  # this is what we see in the column headers, but didnt they do it in spanish?
+
+    # trust their computation?
+    PANAS_data_ = d[
+        ["15.PANAS 21.Negative Affect Score", "15.PANAS 21.Positive Affect Score"]
+    ].rename(
+        columns={
+            "15.PANAS 21.Positive Affect Score": "panas_s_PA",
+            "15.PANAS 21.Negative Affect Score": "panas_s_NA",
+        }
+    )
+    assert PANAS_data.equals(PANAS_data_)  # match!
 
     # KSS
-    dummy = pd.DataFrame({"KSS": ["N/A"] * len(sub_ids)})
-    KSS_data = parse_kss(dummy)
+    d = d.rename(columns={"14.Karolinska Sleeping": "KSS"})
+    KSS_data = parse_kss(d)
 
     # CES-D
-    dummy = pd.DataFrame({f"CESD_{i}": ["N/A"] * len(sub_ids) for i in range(1, 21)})
-    CES_data = parse_cesd(dummy)
+    CES_keys = [k for k in d.keys() if "CES-D" in k]
+    CES_keys = [
+        k for k in CES_keys if k.split(".")[1] in [f"CES-D {i}" for i in range(1, 21)]
+    ]
+    new_keys = [f"CESD_{iq}" for iq in range(1, 21)]
+    d = d.rename(columns=dict(zip(CES_keys, new_keys)))
+    CES_data = parse_cesd(d)
+
+    # trust their computation?
+    assert list(CES_data) == list(d["19.CES-D 21.total score"])
 
     # BISBAS
-    dummy = pd.DataFrame({f"BISBAS_{i}": ["N/A"] * len(sub_ids) for i in range(1, 25)})
-    BISBAS_data = parse_bisbas(dummy, order="general")
+    BISBAS_keys = [k for k in d.columns if "18.BIS-BAS" in k][:24]
+    BISBAS_rename_dict = {k: f"BISBAS_{i+1}" for i, k in enumerate(BISBAS_keys)}
+    d_ = d[BISBAS_keys].rename(
+        columns=BISBAS_rename_dict
+    )  # the other values mess it up
+    BISBAS_data = parse_bisbas(
+        d_, order="general-noreverse"
+    )  # this is what we see in the column headers, but didnt they do it in spanish?
+
+    # trust their computation?
+    BISBAS_data_ = d[
+        [
+            "18.BIS-BAS 25.Score BIS",
+            "18.BIS-BAS 25.Score BAS Drive",
+            "18.BIS-BAS 25.Score BAS Fun Seeking",
+            "18.BIS-BAS 25.Score BAS Reward Responsiveness",
+        ]
+    ].rename(
+        columns={
+            "18.BIS-BAS 25.Score BIS": "bis",
+            "18.BIS-BAS 25.Score BAS Drive": "bas_drive",
+            "18.BIS-BAS 25.Score BAS Fun Seeking": "bas_funseek",
+            "18.BIS-BAS 25.Score BAS Reward Responsiveness": "bas_rewardresponse",
+        }
+    )
+    assert BISBAS_data.equals(BISBAS_data_)  # match!
 
     # STAI-T
-    dummy_state = pd.DataFrame(
-        {f"STAI_S_{i}": ["N/A"] * len(sub_ids) for i in range(1, 21)}
-    )
-    dummy_trait = pd.DataFrame(
-        {f"STAI_T_{i}": ["N/A"] * len(sub_ids) for i in range(1, 21)}
-    )
+    STAI_S_keys = [k for k in d.columns if "16.STAI-S" in k][:20]
+    STAI_T_keys = [k for k in d.columns if "16.STAI-T" in k][:20]
+    STAI_S_rename_dict = {k: f"STAI_S_{i+1}" for i, k in enumerate(STAI_S_keys)}
+    STAI_T_rename_dict = {k: f"STAI_T_{i+1}" for i, k in enumerate(STAI_T_keys)}
+    d_S = (
+        d[STAI_S_keys].rename(columns=STAI_S_rename_dict) + 1
+    )  # the other values mess it up. 0-3 range instead of 1-4
+    d_T = (
+        d[STAI_T_keys].rename(columns=STAI_T_rename_dict) + 1
+    )  # the other values mess it up. 0-3 range instead of 1-4
     STAI_data = pd.DataFrame(
         {
-            "stai_t_state": parse_stai_state(dummy_state, order="en-1"),
-            "stai_t_trait": parse_stai_trait(dummy_trait, order="en-1"),
+            "stai_t_state": parse_stai_state(
+                d_S, order="noreverse"
+            ),  # this is what we see in the column headers, but didnt they do it in spanish?
+            "stai_t_trait": parse_stai_trait(
+                d_T, order="noreverse"
+            ),  # this is what we see in the column headers, but didnt they do it in spanish?
+        }
+    )
+
+    # trust their computation?
+    STAI_data_ = d[
+        [
+            "16.STAI-S Anxiety Score - State",
+            "16.STAI-T Anxiety Score - Trait",
+        ]
+    ].rename(
+        columns={
+            "16.STAI-S Anxiety Score - State": "stai_t_state",
+            "16.STAI-T Anxiety Score - Trait": "stai_t_trait",
+        }
+    )
+    assert STAI_data.equals(
+        STAI_data_ + 20.0
+    )  # matches, after correcting for 0-3 scale!
+
+    return (
+        sub_ids,
+        age,
+        sex,
+        EHI_data,
+        BFI_data,
+        PANAS_data,
+        KSS_data,
+        CES_data,
+        BISBAS_data,
+        STAI_data,
+        [f],
+    )
+
+
+def parse_phenotype_EUR(folder):
+    import pyreadstat
+
+    f1 = folder / "Other_Requested_Files" / "SocioDemoRotterdam.csv"
+    df1 = pd.read_csv(f1)
+
+    f2 = (
+        folder
+        / "Questionnaires"
+        / "EEG+Replication_Questionnaire_May+1,+2024_10.23.sav"
+    )
+    df2, meta = pyreadstat.read_sav(f2)
+
+    # clean data
+    # row 29 in df2 is a weird datapoint. wrong participant number and missing responses throughout missing
+    outlier = df2.iloc[29]
+    df2 = df2.drop(29).reset_index()
+    assert df1["Age"].astype(int).equals(df2["Age"].astype(int))
+
+    df1["participant_id"] = df1["ID"].apply(lambda x: f"EUR{x[-2:]}")
+    sub_ids = list(df1["participant_id"])
+
+    # basics
+    age = list(df1["Age"].astype(int))
+
+    # sex: info is there, BUT only 1 or 2 and no cues for what is what, so..
+    # update: the full questionnaires (df2) have this info: 1: male, 2: female, 3: non-binary (see obj "meta")
+    sex = [
+        "m" if s == 1 else "f" if s == 2 else "o" if s == 3 else None
+        for s in df2["Gender"]  # only 1 and 2 present
+    ]
+
+    # handedness
+    # handcode: 1 -> left 2 -> right (see "meta" obj)
+    df2 = df2.rename(
+        columns={
+            f"EHI_Questions_{ih+1}_{iq}": f"EHI_{vh}_{iq}"
+            for ih, vh in enumerate(["L", "R"])
+            for iq in range(1, 11)
+        }
+    )
+    EHI_data = parse_ehi(df2)
+
+    # BFI
+    df2 = df2.rename(columns={f"BFI_15_{iq}": f"BFI_{iq}" for iq in range(1, 16)})
+    BFI_data = parse_bfi_s15(df2, order="nl-1")
+
+    # PANAS
+    # column names messed up.. 16 and 16.0 but no 15.. also the order is weird, looks like all positive came in a row, then all negative.. maybe they were randomized..
+    rename_dict = {f"PANAS_{iq}": f"PANAS_S_{iq}" for iq in range(1, 21)}
+    rename_dict["PANAS_16"] = "PANAS_S_15"
+    rename_dict["PANAS_16.0"] = "PANAS_S_16"
+    df2 = df2.rename(columns=rename_dict)
+    PANAS_data = parse_panas_state(df2, order="nl-EUR")
+
+    # KSS
+    df2 = df2.rename(columns={"Karolinska_Sleepines": "KSS"})
+    KSS_data = parse_kss(df2)
+
+    # CES-D
+    # apparently shifted to 1-4 scale, (instead of 0-3)
+    df2 = df2.rename(columns={f"CES_D_{iq}": f"CESD_{iq}" for iq in range(1, 21)})
+    for iq in range(1, 21):
+        df2[f"CESD_{iq}"] -= 1
+    CES_data = parse_cesd(df2)
+
+    # BISBAS
+    # apparently dutch order is the same as english
+    df2 = df2.rename(columns={f"BIS_BAS_{iq}": f"BISBAS_{iq}" for iq in range(1, 25)})
+    BISBAS_data = parse_bisbas(df2, order="general")
+
+    # STAI-T
+    STAI_data = pd.DataFrame(
+        {
+            "stai_t_state": parse_stai_state(df2, order="nl-1"),
+            "stai_t_trait": parse_stai_trait(df2, order="nl-1"),
         }
     )
     return (
@@ -157,7 +362,7 @@ def parse_phenotype_EUR(folder):
         CES_data,
         BISBAS_data,
         STAI_data,
-        [f],
+        [f1, f2],
     )
 
 
@@ -515,7 +720,9 @@ def parse_phenotype_UHH(folder):
     d = d.rename(columns={list(d.keys())[i]: keys[i] for i in range(len(keys))})
 
     lab = str(folder.name)[:3]
-    d = d.loc[d["VpCode2"].str.contains(lab).fillna(False)].reset_index(drop=True)
+    d = d.loc[d["VpCode2"].str.contains(lab) == True].reset_index(
+        drop=True
+    )  # nan values treated as false
 
     if lab in ["URE", "GUF"]:
         d["participant_id"] = [
@@ -781,7 +988,7 @@ quest_parser = dict(
     GUF=parse_phenotype_UHH,
     MSH=parse_phenotype_UHH,
     TUD=parse_phenotype_TUD,
-    # UCM=parse_phenotype_UCM,
+    UCM=parse_phenotype_UCM,
     UGE=parse_phenotype_UGE,
     UHH=parse_phenotype_UHH,
     UNL=parse_phenotype_UNL,
@@ -843,9 +1050,7 @@ if __name__ == "__main__":
                 if "test" in sub_label.lower():
                     print(f"--{sub_label} skipped")
                     continue
-                elif f"sub-{sub_label}" in list(
-                    participants_tsv["participant_id"]
-                ):
+                elif f"sub-{sub_label}" in list(participants_tsv["participant_id"]):
                     print(f"--{sub_label} updated")
                     participants_tsv = pd.DataFrame(participants_tsv)
                     participants_tsv.drop(
@@ -902,6 +1107,16 @@ if __name__ == "__main__":
                         # d_tsv[k].append(sub_id if (k=='participant_id') else 'n/a')
 
                     # modify
+                    if "sub-" + sub_label in d_tsv["participant_id"]:
+                        df_tmp = pd.DataFrame(d_tsv)
+                        df_tmp.drop(
+                            df_tmp[
+                                df_tmp.participant_id.str.contains("sub-" + sub_label)
+                            ].index,
+                            inplace=True,
+                        )
+                        d_tsv = df_tmp.to_dict("list")
+
                     d_tsv["participant_id"].append("sub-" + sub_label)
                     if q == "EHI":
                         d_tsv["ehi_lq"].append(EHI_LQ[i])
@@ -947,9 +1162,22 @@ if __name__ == "__main__":
     # clean up and leave
     sort_bids(BIDS_root)
 
+    # check all files have same length
+    tsv_files = [BIDS_root / "participants.tsv"] + [
+        BIDS_root / "phenotype" / (q.lower() + ".tsv") for q in questionaires
+    ]
+    while len(tsv_files) > 1:
+        tsv_file_1 = tsv_files.pop(0)
+        sub_ids_1 = list(pd.read_csv(tsv_file_1, sep="\t")["participant_id"])
+        sub_ids_1.sort()
+        for tsv_file_2 in tsv_files:
+            sub_ids_2 = list(pd.read_csv(tsv_file_2, sep="\t")["participant_id"])
+            sub_ids_2.sort()
+            assert sub_ids_1 == sub_ids_2
+
     # update CHANGES
     if changelog:
-        update_changes(BIDS_root, "- add questionnaires to phenotype folder.")
+        update_changes(BIDS_root, changelog_message)
 
     # validate BIDS
     validate_bids(BIDS_root)

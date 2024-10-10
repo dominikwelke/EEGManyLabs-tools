@@ -78,9 +78,6 @@ def parse_bisbas(data_in, order=None, skipna=False):
         assert BISBAS_data.max(axis=None, skipna=True) <= 4
 
     # transcribe
-    # reverse code all but 2 items
-    reverse_keys = [f"BISBAS_{i}" for i in range(1, 25) if i not in [2, 22]]
-    BISBAS_data[reverse_keys] = BISBAS_data[reverse_keys] * -1 + 5
 
     # compute subscores
     if order == "general":
@@ -90,6 +87,15 @@ def parse_bisbas(data_in, order=None, skipna=False):
         BAS_fun_keys = [f"BISBAS_{k}" for k in [5, 10, 15, 20]]
         BAS_rew_keys = [f"BISBAS_{k}" for k in [4, 7, 14, 18, 23]]
         # filler_keys = [f"BISBAS_{k}" for k in [1, 6, 11, 17]]  # not needed
+        reverse_keys = [f"BISBAS_{i}" for i in range(1, 25) if i not in [2, 22]]
+    elif order == "general-noreverse":
+        # as above but no reversed items (already done by UCM crew)
+        BIS_keys = [f"BISBAS_{k}" for k in [2, 8, 13, 16, 19, 22, 24]]
+        BAS_dri_keys = [f"BISBAS_{k}" for k in [3, 9, 12, 21]]
+        BAS_fun_keys = [f"BISBAS_{k}" for k in [5, 10, 15, 20]]
+        BAS_rew_keys = [f"BISBAS_{k}" for k in [4, 7, 14, 18, 23]]
+        # filler_keys = [f"BISBAS_{k}" for k in [1, 6, 11, 17]]  # not needed
+        reverse_keys = [f"BISBAS_{i}" for i in range(1, 25) if i in []]
     elif order == "en-2":
         # see https://arc.psych.wisc.edu/self-report/behavioral-activation-and-behavioral-inhibition-scales-bai/
         BIS_keys = [f"BISBAS_{k}" for k in [1, 6, 10, 13, 15, 18, 20]]
@@ -97,9 +103,13 @@ def parse_bisbas(data_in, order=None, skipna=False):
         BAS_fun_keys = [f"BISBAS_{k}" for k in [2, 7, 9, 17]]
         BAS_rew_keys = [f"BISBAS_{k}" for k in [3, 5, 11, 14, 19]]
         # filler_keys = [f"BISBAS_{k}" for k in [1, 6, 11, 17]]  # not needed
+        reverse_keys = [f"BISBAS_{i}" for i in range(1, 25) if i not in [2, 22]]
 
     else:
         raise NotImplementedError
+
+    # reverse code all but 2 items
+    BISBAS_data[reverse_keys] = BISBAS_data[reverse_keys] * -1 + 5
 
     BISBAS = pd.DataFrame(
         {
@@ -176,6 +186,14 @@ def parse_bfi_s15(data_in, order=None, skipna=False):
         CON_keys = [f"BFI_{i}" for i in [3, 8, 13]]
         NEG_keys = [f"BFI_{i}" for i in [4, 9, 14]]
         OPE_keys = [f"BFI_{i}" for i in [5, 10, 15]]
+    if order == "nl-1":
+        # no internet source found, but checked in EUR
+        REV_keys = [f"BFI_{i}" for i in [1, 3, 7, 8, 10, 14]]
+        EXT_keys = [f"BFI_{i}" for i in [1, 6, 11]]
+        AGR_keys = [f"BFI_{i}" for i in [2, 7, 12]]
+        CON_keys = [f"BFI_{i}" for i in [3, 8, 13]]
+        NEG_keys = [f"BFI_{i}" for i in [4, 9, 14]]
+        OPE_keys = [f"BFI_{i}" for i in [5, 10, 15]]
     elif order == "ger-1":
         # german version
         # see https://zis.gesis.org/skala/Schupp-Gerlitz-Big-Five-Inventory-SOEP-(BFI-S)#
@@ -189,6 +207,15 @@ def parse_bfi_s15(data_in, order=None, skipna=False):
         # english version
         # see https://www.oecd.org/skills/piaac/Annex-A-Measures-of-the-big-five-dimensions.pdf
         REV_keys = [f"BFI_{i}" for i in [3, 6, 10, 14]]
+        EXT_keys = [f"BFI_{i}" for i in [4, 5, 6]]
+        AGR_keys = [f"BFI_{i}" for i in [10, 11, 12]]
+        CON_keys = [f"BFI_{i}" for i in [13, 14, 15]]
+        NEG_keys = [f"BFI_{i}" for i in [1, 2, 3]]
+        OPE_keys = [f"BFI_{i}" for i in [7, 8, 9]]
+    elif order == "en-noreverse":
+        # english version
+        # see https://www.oecd.org/skills/piaac/Annex-A-Measures-of-the-big-five-dimensions.pdf
+        REV_keys = [f"BFI_{i}" for i in []]
         EXT_keys = [f"BFI_{i}" for i in [4, 5, 6]]
         AGR_keys = [f"BFI_{i}" for i in [10, 11, 12]]
         CON_keys = [f"BFI_{i}" for i in [13, 14, 15]]
@@ -234,6 +261,11 @@ def parse_panas_state(data_in, order=None, skipna=False):
     elif order == "ger-1":
         PA_keys = [f"PANAS_S_{i}" for i in [1, 3, 4, 6, 10, 11, 13, 15, 17, 18]]
         NA_keys = [f"PANAS_S_{i}" for i in [2, 5, 7, 8, 9, 12, 14, 16, 19, 20]]
+    elif (
+        order == "nl-EUR"
+    ):  # this might not be the presentation order, but fits the data..
+        PA_keys = [f"PANAS_S_{i}" for i in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+        NA_keys = [f"PANAS_S_{i}" for i in [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]]
     else:
         raise NotImplementedError
 
@@ -252,7 +284,7 @@ def parse_stai_state(data_in, order=None, skipna=False):
     # check input
     stai_keys = [f"STAI_S_{i}" for i in range(1, 21)]
     assert sum([k in data_in.keys() for k in stai_keys]) == 20
-    STAI_S_data = data_in[stai_keys].apply(pd.to_numeric, errors="coerce")
+    STAI_S_data = data_in[stai_keys].apply(pd.to_numeric, errors="coerce").astype(float)
     if not np.isnan(STAI_S_data.min(axis=None, skipna=True)):
         assert STAI_S_data.min(axis=None, skipna=True) >= 1
         assert STAI_S_data.max(axis=None, skipna=True) <= 4
@@ -267,6 +299,12 @@ def parse_stai_state(data_in, order=None, skipna=False):
         REV_keys = [f"STAI_S_{i}" for i in [1, 2, 5, 8, 10, 11, 15, 16, 19, 20]]
     elif order == "en-1":
         # see https://arc.psych.wisc.edu/self-report/state-trait-anxiety-inventory-sta/
+        REV_keys = [f"STAI_S_{i}" for i in [1, 2, 5, 8, 10, 11, 15, 16, 19, 20]]
+    elif order == "noreverse":
+        # already reversed by UCM crew
+        REV_keys = [f"STAI_S_{i}" for i in []]
+    elif order == "nl-1":
+        # verified for EUR
         REV_keys = [f"STAI_S_{i}" for i in [1, 2, 5, 8, 10, 11, 15, 16, 19, 20]]
     else:
         raise NotImplementedError
@@ -286,7 +324,7 @@ def parse_stai_trait(data_in, order=None, skipna=False):
     # check input
     stai_keys = [f"STAI_T_{i}" for i in range(1, 21)]
     assert sum([k in data_in.keys() for k in stai_keys]) == 20
-    STAI_T_data = data_in[stai_keys].apply(pd.to_numeric, errors="coerce")
+    STAI_T_data = data_in[stai_keys].apply(pd.to_numeric, errors="coerce").astype(float)
     if not np.isnan(STAI_T_data.min(axis=None, skipna=True)):
         assert STAI_T_data.min(axis=None, skipna=True) >= 1
         assert STAI_T_data.max(axis=None, skipna=True) <= 4
@@ -301,6 +339,12 @@ def parse_stai_trait(data_in, order=None, skipna=False):
     elif order == "en-1":
         # see https://arc.psych.wisc.edu/self-report/state-trait-anxiety-inventory-sta/
         REV_keys = [f"STAI_T_{i}" for i in [1, 3, 6, 7, 10, 13, 14, 16, 19]]
+    elif order == "nl-1":
+        # verified for EUR
+        REV_keys = [f"STAI_T_{i}" for i in [1, 3, 7, 10, 13, 14, 15, 16, 19]]
+    elif order == "noreverse":
+        # already reversed by UCM crew
+        REV_keys = [f"STAI_S_{i}" for i in []]
     else:
         raise NotImplementedError
     STAI_T_data.loc[:, REV_keys] *= -1
