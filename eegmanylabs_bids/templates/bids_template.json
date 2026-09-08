@@ -1,0 +1,223 @@
+{
+	"BIDS_version": "1.9.0",
+	"dataset_description": {
+		"Name": "EEGManyLabs - Resting State Dataset - HajcakHolroyd2005",
+		"BIDSVersion": "1.9.0",
+		"DatasetType": "raw",
+		"License": "CC BY",
+		"Authors":[
+			"EEGManyLabs replication teams (creation)",
+			"Dominik Welke (curation)"
+		],
+		"Acknowledgements": "We thank all contributing labs for collecting these data.",
+        "HowToAcknowledge": "Please cite EEGManyLabs (https://doi.org/10.1016/j.cortex.2021.03.013)",
+		"Funding":[
+			"DFG (PA 4005/1-1) provided to Y.G. Pavlov",
+			"BBSRC (BB/X008428/1) provided to F. Mushtaq"
+		],
+		"EthicsApprovals":["see individual replications"],
+		"DatasetDOI":"tbd"
+	},
+	"participants_json": {
+		"participant_id": {
+	        "Description": "Unique participant identifier"
+	    },
+	    "species": {
+	        "Description": "species of the participants"
+	    },
+	    "age": {
+	        "Description": "age of the participant",
+	        "Units": "year"
+	    },
+	    "sex": {
+	        "Description": "sex of the participant as reported by the participant",
+	        "Levels": {
+	            "m": "male",
+	            "f": "female",
+	            "o": "other"
+	        }
+	    },
+	    "handedness": {
+	        "Description": "handedness of the participant as determined by Edinburgh Handedness Inventory (EHI)",
+	        "Levels": {
+	            "l": "left",
+	            "r": "right",
+	            "a": "ambidextrous"
+	        }
+	    },
+	    "replication": {
+	        "Description": "EEGManyLabs replication project",
+	        "Levels": {
+	            "HaycakHolroy2005": "HaycakHolroy2005"
+	        }
+	    },
+		"tod": {
+			"Description": "Time of day; local time of data collection (HH:MM)"
+		},
+	    "lab": {
+	        "Description": "EEGManyLabs replication Team ID"
+	    },
+		"old_id": {
+			"Description": "Original Participant ID during EEGManyLabs data collection; usually the Team ID + running index"
+		}
+	},
+	"eeg_json":{
+		"TaskName":"n/a",
+		"TaskDescription":"n/a",
+		"Instructions":"n/a",
+		"InstitutionName":"n/a",
+		"InstitutionalDepartmentName":"n/a",
+		"SamplingFrequency":"REQUIRED",
+		"PowerLineFrequency":"REQUIRED",
+		"EEGChannelCount":"n/a",
+		"EOGChannelCount":"n/a",
+		"ECGChannelCount":"n/a",
+		"EMGChannelCount":"n/a",
+		"MiscChannelCount":"n/a",
+		"TriggerChannelCount":"n/a",
+		"EEGPlacementScheme":"n/a",
+		"EEGReference":"REQUIRED",
+		"EEGGround":"n/a",
+		"SoftwareFilters":"REQUIRED",
+		"HardwareFilters":"n/a",
+		"Manufacturer":"n/a",
+		"ManufacturersModelName":"n/a",
+		"SoftwareVersions":"n/a",
+		"DeviceSerialNumber":"n/a",
+		"CapManufacturer":"n/a",
+		"CapManufacturersModelName":"n/a",
+		"RecordingDuration":"n/a",
+		"RecordingType":"continuous"
+	},
+	"phenotype_jsons": {
+		"ALL": {
+			"participant_id": {
+		        "Description": "Unique participant identifier"
+		    },
+			"language":{
+				"Description": "Language of the administered tool (ISO 639-1)",
+				"Levels": {
+					"de":"German",
+					"en":"English",
+					"es":"Spanish, Castilian",
+					"fr":"French",
+					"it":"Italian",
+					"nl":"Dutch, Flemish",
+					"no":"Norwegian",
+					"pl":"Polish",
+					"pt":"Portuguese",
+					"zh":"Chinese"
+					}
+			}
+		},
+		"EHI": {
+		    "ehi_handedness": {
+		    	"LongName": "Edinburgh Handedness Inventory - Handedness",
+		        "Description": "Participant handedness as determined by Edinburgh Handedness Inventory (EHI; original 10 item version). See Oldfield (1971). The assessment and analysis of handedness: The Edinburgh inventory. Neuropsychologia 9(1):97-113",
+		        "Levels": {
+		            "l": "left",
+		            "r": "right",
+		            "a": "ambidextrous"
+		        }
+	        },
+	        "ehi_lq":{
+	        	"LongName": "Edinburgh Handedness Inventory - Laterality quotient",
+		        "Description": "Laterality quotient as determined by Edinburgh Handedness Inventory (EHI; original 10 item version). See Oldfield (1971). The assessment and analysis of handedness: The Edinburgh inventory. Neuropsychologia 9(1):97-113"
+	        }
+	    },
+		"BFI": {
+		    "bfi_ext": {
+		        "LongName": "Big Five Inventory (BFI) - Extraversion Domain Subscore",
+		        "Description": "can take values in range [3,21]. Collected using 15 item BFI-S Form, see Soto and John (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68:69-81",
+		        "Units": "none"
+		    },
+		    "bfi_agr": {
+		        "LongName": "Big Five Inventory (BFI) - Agreeableness Domain Subscore",
+		        "Description": "can take values in range [3,21]. Collected using 15 item BFI-S Form, see Soto and John (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68:69-81",
+		        "Units": "none"
+		    },
+		    "bfi_con": {
+		        "LongName": "Big Five Inventory (BFI) - Conscientiousness Domain Subscore",
+		        "Description": "can take values in range [3,21]. Collected using 15 item BFI-S Form, see Soto and John (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68:69-81",
+		        "Units": "none"
+		    },
+		    "bfi_neg": {
+		        "LongName": "Big Five Inventory (BFI) - Negative Emotionality Domain Subscore",
+		        "Description": "can take values in range [3,21]. Collected using 15 item BFI-S Form, see Soto and John (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68:69-81",
+		        "Units": "none"
+		    },
+		    "bfi_ope": {
+		        "LongName": "Big Five Inventory (BFI) - Open-Mindedness Domain Subscore",
+		        "Description": "can take values in range [3,21]. Collected using 15 item BFI-S Form, see Soto and John (2017). Short and extra-short forms of the Big Five Inventory-2: The BFI-2-S and BFI-2-XS. Journal of Research in Personality, 68:69-81",
+		        "Units": "none"
+		    }
+		},
+		"BISBAS": {
+		    "bis":{
+				"LongName": "BIS/BAS scales - behavioral inhibition system (BIS) subscale", 
+				"Description": "can take values in range [7-28]. Collected using 24-item BIS/BAS version, see Carver and White (1994). Behavioral inhibition, behavioral activation, and affective responses to impending reward and punishment: The BIS/BAS scales. Journal of Personality and Social Psychology, 67, 319-333."
+			},
+			"bas_drive":{
+				"LongName": "BIS/BAS scales - behavioral approach system (BAS) Drive subscale", 
+				"Description": "can take values in range [4-16]. Collected using 24-item BIS/BAS version, see Carver and White (1994). Behavioral inhibition, behavioral activation, and affective responses to impending reward and punishment: The BIS/BAS scales. Journal of Personality and Social Psychology, 67, 319-333."
+			},
+			"bas_funseek":{
+				"LongName": "BIS/BAS scales - behavioral approach system (BAS) Fun Seeking subscale", 
+				"Description": "can take values in range [4-16]. Collected using 24-item BIS/BAS version, see Carver and White (1994). Behavioral inhibition, behavioral activation, and affective responses to impending reward and punishment: The BIS/BAS scales. Journal of Personality and Social Psychology, 67, 319-333."
+			},
+			"bas_rewardresponse":{
+				"LongName": "BIS/BAS scales - behavioral approach system (BAS) Reward Responsiveness subscale", 
+				"Description": "can take values in range [5-20]. Collected using 24-item BIS/BAS version, see Carver and White (1994). Behavioral inhibition, behavioral activation, and affective responses to impending reward and punishment: The BIS/BAS scales. Journal of Personality and Social Psychology, 67, 319-333."
+			}
+	    },
+		"CES": {
+		    "ces_d":{
+				"LongName": "Center for Epidemiologic Studies Depression Scale (CES-D)",
+				"Description": "can take values in range [0,60]. Collected using CES-D Form, see Lewinsohn et al (1997). Center for Epidemiological Studies-Depression Scale (CES-D) as a screening instrument for depression among community-residing older adults. Psychology and Aging, 12, 277-287.",
+				"Units": "none"
+			}
+	    },
+		"STAI": {
+		    "stai_state":{
+				"LongName": "Stait-Trait Anxiety Inventory (STAI) - State Measure",
+				"Description": "can take values in range [20,80]. Collected using STAI-Y Form, see Spielberger et al (1983). Manual for the State-Trait Anxiety Inventory. Palo Alto, CA: Consulting Psychologists Press.",
+				"Units": "none"
+			},
+			"stai_trait":{
+				"LongName": "Stait-Trait Anxiety Inventory (STAI) - Trait Measure",
+				"Description": "can take values in range [20,80]. Collected using STAI-Y Form, see Spielberger et al (1983). Manual for the State-Trait Anxiety Inventory. Palo Alto, CA: Consulting Psychologists Press.",
+				"Units": "none"
+			}
+	    },
+		"PANAS_STATE": {
+		    "panas_s_NA": {
+		        "LongName": "Positive Negative Affect Schedule (PANAS) - State mood - Negative Affect Subscore",
+		        "Description": "can take values in range [6-30]. Collected using 20 item PANAS, see Watson et al (1988). Development and validation of brief measures of positive and negative affect: the PANAS scales. Journal of personality and social psychology, 54(6), 1063.",
+		        "Units": "none"
+		    },
+		    "panas_s_PA": {
+		        "LongName": "Positive Negative Affect Schedule (PANAS) - State mood - Positive Affect Subscore",
+		        "Description": "can take values in range [6-30]. Collected using 20 item PANAS, see Watson et al (1988). Development and validation of brief measures of positive and negative affect: the PANAS scales. Journal of personality and social psychology, 54(6), 1063.",
+		        "Units": "none"
+		    }
+		},
+		"KSS": {
+		    "kss":{
+				"LongName": "Karolinska Sleepiness Scale (KSS)",
+		        "Description": "can take values in range [1-9]. see Akerstedt & Gillberg (1990). Subjective and objective sleepiness in the active individual. International Journal of Neuroscience, 52, 29–37.",
+				"Levels": {
+					"1":"extremely alert",
+					"2":"very alert",
+					"3":"alert",
+					"4":"fairly alert",
+					"5":"neither alert nor sleepy",
+					"6":"some signs of sleepyness",
+					"7":"sleepy, but no effort to keep awake",
+					"8":"sleepy, some effort to keep awake",
+					"9":"very sleepy, great effort to keep awake, fighting sleep"
+				}
+
+		    }
+	    }
+	}
+}
